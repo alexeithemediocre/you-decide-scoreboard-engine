@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scoreboard — Control Room</title>
+<title>Qualifiers — Control Room</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -180,45 +180,6 @@
     vertical-align: middle;
   }
   td.entry-name { font-size: 16px; font-weight: 600; }
-  td.entry-points {
-    font-size: 18px;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    width: 60px;
-    text-align: center;
-  }
-
-  .point-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-  .btn-points {
-    min-width: 42px;
-    padding: 8px 10px;
-    font-size: 14px;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.15);
-  }
-  .btn-points.douze {
-    background: linear-gradient(90deg, #ffd700, #ff9d00);
-    color: #221a00;
-  }
-
-  .custom-award { display: flex; gap: 6px; align-items: center; }
-  .custom-award input {
-    width: 64px;
-    padding: 8px 8px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(0,0,0,0.3);
-    color: #fff;
-    font-size: 14px;
-    text-align: center;
-    outline: none;
-  }
-  .custom-award input:focus { border-color: #ff4ecd; }
-  .btn-custom {
-    padding: 8px 12px;
-    font-size: 14px;
-    background: linear-gradient(90deg, #b249f8, #7a3ff2);
-  }
 
   .btn-delete {
     padding: 8px 12px;
@@ -228,22 +189,7 @@
     color: #ff8080;
   }
 
-  .row-actions { display: flex; gap: 6px; }
-
-  .move-buttons { display: flex; flex-direction: column; gap: 4px; }
-  .btn-arrow {
-    padding: 4px 9px;
-    font-size: 11px;
-    line-height: 1;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.8);
-  }
-  .btn-arrow:disabled {
-    opacity: 0.25;
-    cursor: default;
-    pointer-events: none;
-  }
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .btn-edit {
     padding: 8px 12px;
     font-size: 13px;
@@ -341,10 +287,10 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Control Room</h1>
+    <h1>Qualifiers Control Room</h1>
     <div class="subtitle">
-      Manage entries and award points — the scoreboard updates live.
-      Announcing qualifiers? <a href="qualifiers-control.html">Qualifiers control room</a>.
+      Manage the qualifiers announcement board — no points, just country blocks.
+      Looking for the scoreboard? <a href="control.html">Scoreboard control room</a>.
     </div>
 
     <div class="panel">
@@ -365,7 +311,7 @@
     </div>
 
     <div class="panel">
-      <h2>Scoreboard display</h2>
+      <h2>Board display</h2>
       <div class="display-options">
         <label class="flag-toggle"><input type="checkbox" id="show-artist" checked> Show artist names</label>
         <label class="flag-toggle"><input type="checkbox" id="show-song" checked> Show song titles</label>
@@ -373,9 +319,9 @@
     </div>
 
     <div class="panel">
-      <h2>Scoreboard title</h2>
+      <h2>Board title</h2>
       <div class="title-controls">
-        <input type="text" id="title-text" maxlength="80" placeholder="Grand Final" autocomplete="off">
+        <input type="text" id="title-text" maxlength="80" placeholder="Qualifiers" autocomplete="off">
         <select id="title-font">
           <option value="">Default font</option>
           <option value="Arial, sans-serif">Arial</option>
@@ -394,7 +340,7 @@
     </div>
 
     <div class="panel">
-      <h2>Scoreboard background</h2>
+      <h2>Board background</h2>
       <div class="bg-controls">
         <input type="file" id="bg-file" accept="image/*,video/mp4">
         <button type="button" class="btn-cancel" id="bg-clear">Use default background</button>
@@ -403,10 +349,10 @@
     </div>
 
     <div class="panel">
-      <h2>Entries &amp; points</h2>
+      <h2>Entries</h2>
       <table id="entries-table">
         <thead>
-          <tr><th></th><th>Entry</th><th style="text-align:center">Pts</th><th>Award points</th><th></th></tr>
+          <tr><th>Entry</th><th></th></tr>
         </thead>
         <tbody id="entries-body"></tbody>
       </table>
@@ -416,13 +362,12 @@
     <div class="panel">
       <h2>Danger zone</h2>
       <div class="danger-zone">
-        <button class="btn-danger" id="reset-points">Reset all points to 0</button>
         <button class="btn-danger" id="clear-all">Delete all entries</button>
       </div>
     </div>
 
     <div class="hint">
-      Open <a href="scoreboard.html" target="_blank">scoreboard.html</a> in another window
+      Open <a href="qualifiers.html" target="_blank">qualifiers.html</a> in another window
       (that's the one you capture in OBS / share on stream). Both pages must be open in the
       same browser on this computer.
     </div>
@@ -431,10 +376,7 @@
 <script src="flags.js"></script>
 <script>
 (function () {
-  var STORAGE_KEY = "ydse-state";
-  var POINT_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
-
-
+  var STORAGE_KEY = "ydse-qual-state";
 
   var form = document.getElementById("add-form");
   var countryInput = document.getElementById("entry-country");
@@ -459,27 +401,7 @@
     if (typeof state.nextOrder !== "number") state.nextOrder = state.entries.length;
     if (!state.display) state.display = { showArtist: true, showSong: true };
     if (!state.title) state.title = { text: "", font: "", color: "" };
-    // Migrate pre-structured entries: "Country — Artist — Song" in .name
-    state.entries.forEach(function (e) {
-      if (e.country === undefined) {
-        var parts = (e.name || "").split(/—|–| - /).map(function (p) { return p.trim(); });
-        e.country = parts[0] || "";
-        e.artist = parts[1] || "";
-        e.song = parts.slice(2).join(" — ") || "";
-        delete e.name;
-      }
-      // manual tie-break position; defaults to insertion order
-      if (typeof e.tieBreak !== "number") e.tieBreak = e.order;
-    });
     return state;
-  }
-
-  // Ranking: points first; tieBreak only ever separates equal-point
-  // entries (the ▲▼ arrows adjust it); insertion order as backstop.
-  function compareEntries(a, b) {
-    if (b.points !== a.points) return b.points - a.points;
-    if (a.tieBreak !== b.tieBreak) return a.tieBreak - b.tieBreak;
-    return a.order - b.order;
   }
 
   // "Sweden — Loreen — Euphoria", respecting what the entry actually has
@@ -500,9 +422,7 @@
       country: country,
       artist: artist,
       song: song,
-      points: 0,
       order: state.nextOrder,
-      tieBreak: state.nextOrder,
       flagUrl: flagUrl
     });
     state.nextOrder += 1;
@@ -517,8 +437,38 @@
     addEntryCore(country, artist, song, flagUrl);
   }
 
-  // ---- Flag gallery (built lazily on first open) ----
+  function deleteEntry(id) {
+    var state = readState();
+    state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    writeState(state);
+  }
 
+  function saveEntryEdit(id, inputs) {
+    var country = inputs.country.value.trim();
+    if (!country) {
+      inputs.country.focus();
+      return; // a country name is required
+    }
+    var state = readState();
+    var entry = state.entries.find(function (e) { return e.id === id; });
+    if (entry) {
+      var countryChanged = entry.country !== country;
+      entry.country = country;
+      entry.artist = inputs.artist.value.trim();
+      entry.song = inputs.song.value.trim();
+      // Entry had a flag and the country changed: re-resolve it
+      if (countryChanged && entry.flagUrl) {
+        entry.flagUrl = flagUrlForName(country);
+        if (!entry.flagUrl) {
+          showFlagHint('No flag found for "' + country + '" — the entry keeps no flag.');
+        }
+      }
+    }
+    editingId = null;
+    writeState(state);
+  }
+
+  // ---- Flag gallery (built lazily on first open) ----
   function buildFlagGallery() {
     var grid = document.getElementById("flag-grid");
     if (grid.children.length) return; // already built
@@ -608,76 +558,6 @@
     flagHintTimer = setTimeout(function () { hint.style.display = "none"; }, 6000);
   }
 
-  function awardPoints(id, amount) {
-    var state = readState();
-    var entry = state.entries.find(function (e) { return e.id === id; });
-    if (!entry) return;
-    var pointsBefore = entry.points;
-    entry.points += amount;
-    if (entry.points < 0) entry.points = 0;
-    // A real score change forgets any manual ▲▼ tie-break nudges:
-    // the entry settles wherever the default ranking puts it.
-    if (entry.points !== pointsBefore) entry.tieBreak = entry.order;
-    // Record the award itself so the scoreboard can flash the entry even
-    // when the score doesn't change (a dramatic "+0", for example).
-    state.lastAward = {
-      id: id,
-      amount: amount,
-      seq: (state.lastAward ? state.lastAward.seq : 0) + 1
-    };
-    writeState(state);
-  }
-
-  function deleteEntry(id) {
-    var state = readState();
-    state.entries = state.entries.filter(function (e) { return e.id !== id; });
-    writeState(state);
-  }
-
-  // Move an entry one place up (dir -1) or down (dir +1) within its
-  // group of equal-point entries by permuting the group's tieBreak
-  // values. tieBreak stays a permutation of the group's order values,
-  // so a later reset (tieBreak = order) lands back in the same set.
-  function moveEntry(id, dir) {
-    var state = readState();
-    var sorted = state.entries.slice().sort(compareEntries);
-    var index = sorted.findIndex(function (e) { return e.id === id; });
-    var target = sorted[index + dir];
-    if (!target || target.points !== sorted[index].points) return;
-    var group = sorted.filter(function (e) { return e.points === sorted[index].points; });
-    var values = group.map(function (e) { return e.order; }).sort(function (a, b) { return a - b; });
-    group.forEach(function (e, i) { e.tieBreak = values[i]; }); // normalize to display order
-    var gi = group.indexOf(sorted[index]);
-    group[gi].tieBreak = values[gi + dir];
-    group[gi + dir].tieBreak = values[gi];
-    writeState(state);
-  }
-
-  function saveEntryEdit(id, inputs) {
-    var country = inputs.country.value.trim();
-    if (!country) {
-      inputs.country.focus();
-      return; // a country name is required
-    }
-    var state = readState();
-    var entry = state.entries.find(function (e) { return e.id === id; });
-    if (entry) {
-      var countryChanged = entry.country !== country;
-      entry.country = country;
-      entry.artist = inputs.artist.value.trim();
-      entry.song = inputs.song.value.trim();
-      // Entry had a flag and the country changed: re-resolve it
-      if (countryChanged && entry.flagUrl) {
-        entry.flagUrl = flagUrlForName(country);
-        if (!entry.flagUrl) {
-          showFlagHint('No flag found for "' + country + '" — the entry keeps no flag.');
-        }
-      }
-    }
-    editingId = null;
-    writeState(state);
-  }
-
   function render() {
     var state = readState();
     showArtistBox.checked = state.display.showArtist;
@@ -692,32 +572,15 @@
     bgStatus.textContent = state.background && state.background.kind
       ? "Custom " + state.background.kind + ': "' + (state.background.name || "unnamed") + '"'
       : "Default background.";
-    // Show entries sorted by current score, same as the scoreboard
-    var entries = state.entries.slice().sort(compareEntries);
+
+    // Announcement order = the order entries were added
+    var entries = state.entries.slice().sort(function (a, b) { return a.order - b.order; });
 
     noEntries.style.display = entries.length ? "none" : "block";
     tbody.innerHTML = "";
 
-    entries.forEach(function (entry, index) {
+    entries.forEach(function (entry) {
       var tr = document.createElement("tr");
-
-      // ▲▼ tie-break arrows: only usable against a tied neighbor
-      var tdMove = document.createElement("td");
-      var moveBox = document.createElement("div");
-      moveBox.className = "move-buttons";
-      [[-1, "▲"], [1, "▼"]].forEach(function (arrow) {
-        var btn = document.createElement("button");
-        btn.className = "btn-arrow";
-        btn.textContent = arrow[1];
-        var neighbor = entries[index + arrow[0]];
-        btn.disabled = !neighbor || neighbor.points !== entry.points;
-        btn.title = btn.disabled
-          ? "Only tied entries can swap positions"
-          : "Swap with the entry " + (arrow[0] < 0 ? "above" : "below");
-        btn.addEventListener("click", function () { moveEntry(entry.id, arrow[0]); });
-        moveBox.appendChild(btn);
-      });
-      tdMove.appendChild(moveBox);
 
       var tdName = document.createElement("td");
       tdName.className = "entry-name";
@@ -746,46 +609,6 @@
       } else {
         tdName.appendChild(document.createTextNode(fullName(entry)));
       }
-
-      var tdPoints = document.createElement("td");
-      tdPoints.className = "entry-points";
-      tdPoints.textContent = entry.points;
-
-      var tdButtons = document.createElement("td");
-      var buttonBox = document.createElement("div");
-      buttonBox.className = "point-buttons";
-      POINT_VALUES.forEach(function (value) {
-        var btn = document.createElement("button");
-        btn.className = "btn-points" + (value === 12 ? " douze" : "");
-        btn.textContent = "+" + value;
-        btn.addEventListener("click", function () { awardPoints(entry.id, value); });
-        buttonBox.appendChild(btn);
-      });
-
-      // Custom amount: any whole number, negatives allowed for corrections
-      var customBox = document.createElement("div");
-      customBox.className = "custom-award";
-      var customInput = document.createElement("input");
-      customInput.type = "number";
-      customInput.step = "1";
-      customInput.placeholder = "±pts";
-      var customBtn = document.createElement("button");
-      customBtn.className = "btn-custom";
-      customBtn.textContent = "Add";
-      function awardCustom() {
-        var amount = parseInt(customInput.value, 10);
-        if (isNaN(amount)) return;
-        awardPoints(entry.id, amount);
-      }
-      customBtn.addEventListener("click", awardCustom);
-      customInput.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") awardCustom();
-      });
-      buttonBox.appendChild(customBox);
-      customBox.appendChild(customInput);
-      customBox.appendChild(customBtn);
-
-      tdButtons.appendChild(buttonBox);
 
       var tdActions = document.createElement("td");
       var actions = document.createElement("div");
@@ -818,7 +641,7 @@
         delBtn.className = "btn-delete";
         delBtn.textContent = "Remove";
         delBtn.addEventListener("click", function () {
-          if (confirm('Remove "' + fullName(entry) + '" from the scoreboard?')) {
+          if (confirm('Remove "' + fullName(entry) + '" from the board?')) {
             deleteEntry(entry.id);
           }
         });
@@ -827,10 +650,7 @@
       }
       tdActions.appendChild(actions);
 
-      tr.appendChild(tdMove);
       tr.appendChild(tdName);
-      tr.appendChild(tdPoints);
-      tr.appendChild(tdButtons);
       tr.appendChild(tdActions);
       tbody.appendChild(tr);
     });
@@ -851,8 +671,8 @@
     countryInput.focus();
   });
 
-  // Scoreboard display toggles live in shared state so the scoreboard
-  // reacts immediately.
+  // Board display toggles live in shared state so the board reacts
+  // immediately.
   function saveDisplayOption(key, checked) {
     var state = readState();
     state.display[key] = checked;
@@ -861,7 +681,7 @@
   showArtistBox.addEventListener("change", function () { saveDisplayOption("showArtist", this.checked); });
   showSongBox.addEventListener("change", function () { saveDisplayOption("showSong", this.checked); });
 
-  // ---- Scoreboard title controls ----
+  // ---- Board title controls ----
   var titleTextInput = document.getElementById("title-text");
   var titleFontSelect = document.getElementById("title-font");
   var titleColorEnabled = document.getElementById("title-color-enabled");
@@ -886,7 +706,7 @@
     saveTitle();
   });
 
-  // ---- Scoreboard background (file kept in IndexedDB — too big for
+  // ---- Board background (file kept in IndexedDB — too big for
   // localStorage; the state only carries a change signal) ----
   function idbCall(mode, fn) {
     return new Promise(function (resolve, reject) {
@@ -917,7 +737,7 @@
       bgStatus.textContent = "Unsupported file type — pick an image or an MP4 video.";
       return;
     }
-    idbPut("background", { mime: file.type, blob: file }).then(function () {
+    idbPut("qualifiers-background", { mime: file.type, blob: file }).then(function () {
       var state = readState();
       state.background = {
         kind: isVideo ? "video" : "image",
@@ -926,27 +746,23 @@
       };
       writeState(state);
     }).catch(function () {
-      bgStatus.textContent = "Could not store the file — the scoreboard keeps its default background.";
+      bgStatus.textContent = "Could not store the file — the board keeps its default background.";
     });
   });
 
   document.getElementById("bg-clear").addEventListener("click", function () {
-    idbDelete("background").catch(function () {});
+    idbDelete("qualifiers-background").catch(function () {});
     var state = readState();
     state.background = null;
     writeState(state);
   });
 
-  document.getElementById("reset-points").addEventListener("click", function () {
-    if (!confirm("Reset every entry's points to 0?")) return;
-    var state = readState();
-    state.entries.forEach(function (e) { e.points = 0; e.tieBreak = e.order; });
-    writeState(state);
-  });
-
   document.getElementById("clear-all").addEventListener("click", function () {
     if (!confirm("Delete ALL entries? This cannot be undone.")) return;
-    writeState({ entries: [], nextOrder: 0 });
+    var state = readState();
+    state.entries = [];
+    state.nextOrder = 0;
+    writeState(state);
   });
 
   // Pick up changes made in other tabs too

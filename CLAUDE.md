@@ -8,10 +8,12 @@ An interactive Eurovision-style scoreboard for **live-streamed fan contests** (e
 
 ## Current state (proof of concept)
 
-Two self-contained HTML pages, no build step, no dependencies, no framework — plain HTML/CSS/vanilla JS with everything inlined:
+Plain HTML/CSS/vanilla JS pages, no build step, no dependencies, no framework. Two independent boards, each a stream page + control page pair:
 
-- `scoreboard.html` — the stream-facing view. Renders entries ranked by points. Rows are absolutely positioned and moved with `translateY` + CSS transitions, which produces the up/down glide animation when rankings change. Also shows a pink flash and a "+N" badge on entries that just scored, and gold/silver/bronze accents for the top 3.
-- `control.html` — backstage page. Add/remove entries, award Eurovision point values (1–8, 10, 12), reset points, clear the board.
+- `scoreboard.html` — the stream-facing scoreboard. Renders entries ranked by points in two columns. Rows are absolutely positioned and moved with `translate(x, y)` + CSS transitions, which produces the glide animation when rankings change. Also shows a pink flash and a "+N" badge on entries that just scored, and gold/silver/bronze accents for the top 3.
+- `control.html` — scoreboard backstage. Add/edit/remove entries, award Eurovision point values (0–8, 10, 12) or custom amounts, tie-break arrows, title/background/display customization, reset points, clear the board.
+- `qualifiers.html` + `qualifiers-control.html` — a second, points-free board for qualifier announcements: country blocks in two columns in insertion order, with the same flag/title/background/display customization but no scoring, ranks, or award flashes. Separate localStorage key `ydse-qual-state` and IndexedDB background key `qualifiers-background`, so the two boards never interfere.
+- `flags.js` — shared by both control pages (plain `<script src>`, works from file://): the generated `COUNTRY_CODES` map, `FLAG_OVERRIDES`, `SPECIAL_FLAG_NAMES`, and the flag-URL helpers. The stream pages don't need it (they only render stored `flagUrl`s).
 
 ### How the pages sync
 
@@ -36,7 +38,7 @@ Further optional state keys, all set from the control page:
 
 `flagUrl` is optional (null/absent = no flag). It is resolved once at add time on the control page: the country is parsed from the entry name (text before the first dash), looked up in an inline country→code map, and turned into a Twemoji PNG URL on the jsDelivr CDN (`jdecked/twemoji`). Flags therefore need internet access to display; both pages hide broken flag images gracefully.
 
-The map covers all 258 emoji flags (every country and territory, incl. England/Scotland/Wales tag sequences) plus typed-name aliases. It is **generated** by `tools/gen-flags.mjs` (Node): the script enumerates CLDR region names via `Intl.DisplayNames`, verifies each Twemoji PNG exists on the CDN, and prints the `COUNTRY_CODES` literal to paste into control.html — rerun it rather than editing the map by hand. `FLAG_OVERRIDES` in control.html maps ISO codes to replacement image URLs and wins over Twemoji; Belarus (`by`) deliberately uses the white-red-white 1918/1991–1995 flag from Wikimedia — do not "fix" it to the official flag.
+The map covers all 258 emoji flags (every country and territory, incl. England/Scotland/Wales tag sequences) plus typed-name aliases. It is **generated** by `tools/gen-flags.mjs` (Node): the script enumerates CLDR region names via `Intl.DisplayNames`, verifies each Twemoji PNG exists on the CDN, and prints the `COUNTRY_CODES` literal to paste into `flags.js` — rerun it rather than editing the map by hand. `FLAG_OVERRIDES` in flags.js maps ISO codes to replacement image URLs and wins over Twemoji; Belarus (`by`) deliberately uses the white-red-white 1918/1991–1995 flag from Wikimedia — do not "fix" it to the official flag.
 
 `lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
@@ -44,7 +46,7 @@ The map covers all 258 emoji flags (every country and territory, incl. England/S
 - Ranking: points descending, then `tieBreak` ascending, then `order` (insertion order). `tieBreak` defaults to `order`; the control page's ▲▼ arrows permute it within a group of equal-point entries to resolve ties manually. Any award that actually changes an entry's points resets that entry's `tieBreak` to `order` ("manual nudges are forgotten"), as does "Reset all points". The sort comparator must stay identical in both pages.
 - Consequence: both pages must be open in the same browser on the same machine. Multi-machine or viewer participation would require a real backend — that is the anticipated future direction ("engine" in the repo name).
 
-If you change the state shape or storage key, update **both** pages — they each have their own copy of the read/write helpers by design (self-contained files).
+If you change a state shape or storage key, update **both pages of that board** — each page has its own copy of the read/write helpers by design (self-contained files). The qualifiers state (`ydse-qual-state`) is the same shape minus `points`/`tieBreak`/`lastAward`.
 
 ## Running / verifying
 
