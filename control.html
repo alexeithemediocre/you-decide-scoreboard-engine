@@ -111,6 +111,14 @@
     background: rgba(255,255,255,0.04);
     font-size: 13px;
     color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+  }
+  .flag-cell:hover { background: rgba(255,255,255,0.12); }
+  .flag-cell.added {
+    background: rgba(255, 78, 205, 0.35);
+    outline: 1px solid #ff4ecd;
   }
   /* Fixed size so lazy images occupy space before loading — zero-height
      images never intersect the viewport and would never start loading. */
@@ -437,12 +445,7 @@
     render();
   }
 
-  function addEntry(name, wantFlag) {
-    var flagUrl = wantFlag ? flagUrlForName(name) : null;
-    if (wantFlag && !flagUrl) {
-      showFlagHint('No flag found for "' + name.split(/—|–| - /)[0].trim() +
-        '" — entry added without one. (The country name must come first.)');
-    }
+  function addEntryCore(name, flagUrl) {
     var state = readState();
     state.entries.push({
       id: "e" + state.nextOrder + "-" + name.replace(/\W/g, "").slice(0, 12),
@@ -453,6 +456,15 @@
     });
     state.nextOrder += 1;
     writeState(state);
+  }
+
+  function addEntry(name, wantFlag) {
+    var flagUrl = wantFlag ? flagUrlForName(name) : null;
+    if (wantFlag && !flagUrl) {
+      showFlagHint('No flag found for "' + name.split(/—|–| - /)[0].trim() +
+        '" — entry added without one. (The country name must come first.)');
+    }
+    addEntryCore(name, flagUrl);
   }
 
   // ---- Flag gallery (built lazily on first open) ----
@@ -499,6 +511,7 @@
     flags.forEach(function (flag) {
       var cell = document.createElement("div");
       cell.className = "flag-cell";
+      cell.title = 'Add "' + flag.name + '" to the board';
       var img = document.createElement("img");
       img.alt = "";
       img.dataset.src = flag.url;
@@ -508,6 +521,19 @@
       label.textContent = flag.name;
       cell.appendChild(img);
       cell.appendChild(label);
+
+      // Click to add this country as an entry, flag included
+      cell.addEventListener("click", function () {
+        var duplicate = readState().entries.some(function (e) { return e.name === flag.name; });
+        if (duplicate) {
+          showFlagHint('"' + flag.name + '" is already on the board.');
+          return;
+        }
+        addEntryCore(flag.name, flag.url);
+        cell.classList.add("added");
+        setTimeout(function () { cell.classList.remove("added"); }, 900);
+      });
+
       grid.appendChild(cell);
     });
 
