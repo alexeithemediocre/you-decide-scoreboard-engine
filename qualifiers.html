@@ -103,9 +103,10 @@
     text-overflow: ellipsis;
   }
 
-  /* Announced qualifiers recede so the background shows through them
-     and the remaining candidates stand out. */
-  .row.qualified { opacity: 0.35; }
+  /* Candidates wait semi-transparent; an announced qualifier lights up
+     to full visibility against the background. */
+  .row { opacity: 0.35; }
+  .row.qualified { opacity: 1; }
 
   #empty {
     text-align: center;
@@ -127,7 +128,7 @@
   }
 
   /* Announcement banner: rolls in from the left edge, holds in the
-     center for ~10s, rolls out through the right edge. translateX with
+     center for ~5s, rolls out through the right edge. translateX with
      vw/% keeps the whole trip on the compositor. */
   #qual-banner {
     position: fixed;
@@ -144,14 +145,14 @@
     font-size: 20px;
     white-space: nowrap;
     transform: translateX(calc(-100% - 30px));
-    animation: qual-banner 13s forwards;
+    animation: qual-banner 8s forwards;
   }
   #qual-banner img { width: 32px; }
   #qual-banner strong { font-weight: 800; }
   @keyframes qual-banner {
     0%   { transform: translateX(calc(-100% - 30px)); } /* off the left edge */
-    10%  { transform: translateX(calc(50vw - 50%)); }   /* centered */
-    88%  { transform: translateX(calc(50vw - 50%)); }   /* hold ~10s */
+    16%  { transform: translateX(calc(50vw - 50%)); }   /* centered (~1.3s in) */
+    80%  { transform: translateX(calc(50vw - 50%)); }   /* hold ~5s */
     100% { transform: translateX(calc(100vw + 30px)); } /* off the right edge */
   }
 </style>
@@ -342,13 +343,11 @@
       flag.classList.remove("empty");
     }
     board.appendChild(row);
-    // Let the browser paint the "entering" state first, then release it
-    // so the fade-in transition can play.
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        row.classList.remove("entering");
-      });
-    });
+    // Release the "entering" state on a timer so the fade-in transition
+    // can play. Not requestAnimationFrame: hidden tabs (background tab,
+    // OBS capture) never fire animation frames, and rows would stay
+    // invisible until the tab is focused again.
+    setTimeout(function () { row.classList.remove("entering"); }, 50);
     return row;
   }
 

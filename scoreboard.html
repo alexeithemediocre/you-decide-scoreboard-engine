@@ -326,13 +326,11 @@
       flag.classList.remove("empty");
     }
     board.appendChild(row);
-    // Let the browser paint the "entering" state first, then release it
-    // so the fade-in transition can play.
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        row.classList.remove("entering");
-      });
-    });
+    // Release the "entering" state on a timer so the fade-in transition
+    // can play. Not requestAnimationFrame: hidden tabs (background tab,
+    // OBS capture) never fire animation frames, and rows would stay
+    // invisible until the tab is focused again.
+    setTimeout(function () { row.classList.remove("entering"); }, 50);
     return row;
   }
 
