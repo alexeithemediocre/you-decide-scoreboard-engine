@@ -752,7 +752,8 @@
     showArtistBox.checked = state.display.showArtist;
     showSongBox.checked = state.display.showSong;
 
-    titleTextInput.value = state.title.text;
+    // don't fight the user's caret while they are typing in the field
+    if (document.activeElement !== titleTextInput) titleTextInput.value = state.title.text;
     titleFontSelect.value = state.title.font;
     titleColorEnabled.checked = !!state.title.color;
     if (state.title.color) titleColorInput.value = state.title.color;
@@ -922,7 +923,9 @@
   function saveTitle() {
     var state = readState();
     state.title = {
-      text: titleTextInput.value.trim(),
+      // no trim: it would eat the space the user just typed, because
+      // render() syncs this input right back from the saved state
+      text: titleTextInput.value,
       font: titleFontSelect.value,
       color: titleColorEnabled.checked ? titleColorInput.value : ""
     };
