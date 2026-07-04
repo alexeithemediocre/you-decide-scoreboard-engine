@@ -27,6 +27,8 @@ Shared state lives in `localStorage` under the key **`ydse-state`**:
 
 `flagUrl` is optional (null/absent = no flag). It is resolved once at add time on the control page: the country is parsed from the entry name (text before the first dash), looked up in an inline country→code map, and turned into a Twemoji PNG URL on the jsDelivr CDN (`jdecked/twemoji`). Flags therefore need internet access to display; both pages hide broken flag images gracefully.
 
+The map covers all 258 emoji flags (every country and territory, incl. England/Scotland/Wales tag sequences) plus typed-name aliases. It is **generated** by `tools/gen-flags.mjs` (Node): the script enumerates CLDR region names via `Intl.DisplayNames`, verifies each Twemoji PNG exists on the CDN, and prints the `COUNTRY_CODES` literal to paste into control.html — rerun it rather than editing the map by hand. `FLAG_OVERRIDES` in control.html maps ISO codes to replacement image URLs and wins over Twemoji; Belarus (`by`) deliberately uses the white-red-white 1918/1991–1995 flag from Wikimedia — do not "fix" it to the official flag.
+
 `lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
 - `control.html` writes state; `scoreboard.html` listens to the `storage` event **and** polls every 400 ms as a fallback.

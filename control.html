@@ -244,41 +244,112 @@
   // Twitter's emoji flag renders (Twemoji), served from a public CDN.
   var TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/";
 
-  // Country name (lowercase) -> ISO country code, or a full Twemoji hex
-  // sequence for special flags. Covers Eurovision participants + extras.
+  // Country/territory name (lowercase, accents stripped) -> ISO code, or a
+  // full Twemoji hex sequence for special flags. Generated from the CLDR
+  // region list; every code was verified to have a Twemoji flag PNG.
+  // Covers all 258 emoji flags incl. territories (Reunion, Curacao, ...).
   var COUNTRY_CODES = {
-    "albania": "al", "andorra": "ad", "armenia": "am", "australia": "au",
-    "austria": "at", "azerbaijan": "az", "belarus": "by", "belgium": "be",
-    "bosnia and herzegovina": "ba", "bosnia & herzegovina": "ba",
-    "bulgaria": "bg", "croatia": "hr", "cyprus": "cy",
-    "czechia": "cz", "czech republic": "cz", "denmark": "dk",
-    "estonia": "ee", "finland": "fi", "france": "fr", "georgia": "ge",
-    "germany": "de", "greece": "gr", "hungary": "hu", "iceland": "is",
-    "ireland": "ie", "israel": "il", "italy": "it", "kazakhstan": "kz",
-    "kosovo": "xk", "latvia": "lv", "lithuania": "lt", "luxembourg": "lu",
-    "malta": "mt", "moldova": "md", "monaco": "mc", "montenegro": "me",
-    "morocco": "ma", "netherlands": "nl", "north macedonia": "mk",
-    "macedonia": "mk", "norway": "no", "poland": "pl", "portugal": "pt",
-    "romania": "ro", "russia": "ru", "san marino": "sm", "serbia": "rs",
-    "slovakia": "sk", "slovenia": "si", "spain": "es", "sweden": "se",
-    "switzerland": "ch", "turkey": "tr", "turkiye": "tr", "türkiye": "tr",
-    "ukraine": "ua", "united kingdom": "gb", "uk": "gb", "great britain": "gb",
-    "united states": "us", "usa": "us", "canada": "ca", "japan": "jp",
-    "south korea": "kr", "china": "cn", "india": "in", "brazil": "br",
-    "mexico": "mx", "argentina": "ar", "new zealand": "nz",
-    "south africa": "za", "egypt": "eg", "liechtenstein": "li",
-    "faroe islands": "fo", "greenland": "gl", "wales": "1f3f4-e0067-e0062-e0077-e006c-e0073-e007f",
-    "scotland": "1f3f4-e0067-e0062-e0073-e0063-e0074-e007f",
-    "england": "1f3f4-e0067-e0062-e0065-e006e-e0067-e007f"
+    "afghanistan": "af", "aland": "ax", "aland islands": "ax", "albania": "al", "algeria": "dz",
+    "america": "us", "american samoa": "as", "andorra": "ad", "angola": "ao", "anguilla": "ai",
+    "antarctica": "aq", "antigua": "ag", "antigua & barbuda": "ag", "antigua and barbuda": "ag",
+    "argentina": "ar", "armenia": "am", "aruba": "aw", "ascension island": "ac",
+    "australia": "au", "austria": "at", "azerbaijan": "az", "bahamas": "bs", "bahrain": "bh",
+    "bangladesh": "bd", "barbados": "bb", "belarus": "by", "belgium": "be", "belize": "bz",
+    "benin": "bj", "bermuda": "bm", "bhutan": "bt", "bolivia": "bo", "bosnia": "ba",
+    "bosnia & herzegovina": "ba", "bosnia and herzegovina": "ba", "botswana": "bw",
+    "bouvet island": "bv", "brazil": "br", "britain": "gb",
+    "british indian ocean territory": "io", "british virgin islands": "vg", "brunei": "bn",
+    "bulgaria": "bg", "burkina faso": "bf", "burma": "mm", "burundi": "bi", "cambodia": "kh",
+    "cameroon": "cm", "canada": "ca", "canary islands": "ic", "cape verde": "cv",
+    "caribbean netherlands": "bq", "cayman islands": "ky", "central african republic": "cf",
+    "ceuta & melilla": "ea", "ceuta and melilla": "ea", "chad": "td", "chile": "cl",
+    "china": "cn", "christmas island": "cx", "clipperton island": "cp",
+    "cocos (keeling) islands": "cc", "colombia": "co", "comoros": "km", "congo": "cg",
+    "congo - brazzaville": "cg", "congo - kinshasa": "cd", "cook islands": "ck",
+    "costa rica": "cr", "cote d'ivoire": "ci", "croatia": "hr", "cuba": "cu", "curacao": "cw",
+    "cyprus": "cy", "czech republic": "cz", "czechia": "cz",
+    "democratic republic of the congo": "cd", "denmark": "dk", "diego garcia": "dg",
+    "djibouti": "dj", "dominica": "dm", "dominican republic": "do", "dprk": "kp",
+    "dr congo": "cd", "drc": "cd", "east timor": "tl", "ecuador": "ec", "egypt": "eg",
+    "el salvador": "sv", "england": "1f3f4-e0067-e0062-e0065-e006e-e0067-e007f",
+    "equatorial guinea": "gq", "eritrea": "er", "estonia": "ee", "eswatini": "sz",
+    "ethiopia": "et", "european union": "eu", "falkland islands": "fk", "falklands": "fk",
+    "faroe islands": "fo", "fiji": "fj", "finland": "fi", "france": "fr", "french guiana": "gf",
+    "french polynesia": "pf", "french southern territories": "tf", "fyr macedonia": "mk",
+    "gabon": "ga", "gambia": "gm", "georgia": "ge", "germany": "de", "ghana": "gh",
+    "gibraltar": "gi", "great britain": "gb", "greece": "gr", "greenland": "gl",
+    "grenada": "gd", "guadeloupe": "gp", "guam": "gu", "guatemala": "gt", "guernsey": "gg",
+    "guinea": "gn", "guinea-bissau": "gw", "guyana": "gy", "haiti": "ht",
+    "heard & mcdonald islands": "hm", "heard and mcdonald islands": "hm", "holland": "nl",
+    "honduras": "hn", "hong kong": "hk", "hong kong sar china": "hk", "hungary": "hu",
+    "iceland": "is", "india": "in", "indonesia": "id", "iran": "ir", "iraq": "iq",
+    "ireland": "ie", "isle of man": "im", "israel": "il", "italy": "it", "ivory coast": "ci",
+    "jamaica": "jm", "japan": "jp", "jersey": "je", "jordan": "jo", "kazakhstan": "kz",
+    "kenya": "ke", "kiribati": "ki", "korea": "kr", "kosovo": "xk", "kuwait": "kw",
+    "kyrgyzstan": "kg", "laos": "la", "latvia": "lv", "lebanon": "lb", "lesotho": "ls",
+    "liberia": "lr", "libya": "ly", "liechtenstein": "li", "lithuania": "lt",
+    "luxembourg": "lu", "macao": "mo", "macao sar china": "mo", "macau": "mo",
+    "macedonia": "mk", "madagascar": "mg", "malawi": "mw", "malaysia": "my", "maldives": "mv",
+    "mali": "ml", "malta": "mt", "marshall islands": "mh", "martinique": "mq",
+    "mauritania": "mr", "mauritius": "mu", "mayotte": "yt", "mexico": "mx", "micronesia": "fm",
+    "moldova": "md", "monaco": "mc", "mongolia": "mn", "montenegro": "me", "montserrat": "ms",
+    "morocco": "ma", "mozambique": "mz", "myanmar": "mm", "myanmar (burma)": "mm",
+    "namibia": "na", "nauru": "nr", "nepal": "np", "netherlands": "nl", "new caledonia": "nc",
+    "new zealand": "nz", "nicaragua": "ni", "niger": "ne", "nigeria": "ng", "niue": "nu",
+    "norfolk island": "nf", "north korea": "kp", "north macedonia": "mk",
+    "northern mariana islands": "mp", "norway": "no", "oman": "om", "pakistan": "pk",
+    "palau": "pw", "palestine": "ps", "palestinian territories": "ps", "panama": "pa",
+    "papua new guinea": "pg", "paraguay": "py", "peru": "pe", "philippines": "ph",
+    "pitcairn islands": "pn", "poland": "pl", "portugal": "pt", "puerto rico": "pr",
+    "qatar": "qa", "republic of ireland": "ie", "republic of korea": "kr",
+    "republic of the congo": "cg", "reunion": "re", "romania": "ro", "russia": "ru",
+    "russian federation": "ru", "rwanda": "rw", "saint barthelemy": "bl", "saint helena": "sh",
+    "saint kitts and nevis": "kn", "saint lucia": "lc", "saint martin": "mf",
+    "saint pierre and miquelon": "pm", "saint vincent and grenadines": "vc", "samoa": "ws",
+    "san marino": "sm", "sao tome & principe": "st", "sao tome and principe": "st",
+    "saudi arabia": "sa", "scotland": "1f3f4-e0067-e0062-e0073-e0063-e0074-e007f",
+    "senegal": "sn", "serbia": "rs", "seychelles": "sc", "sierra leone": "sl",
+    "singapore": "sg", "sint maarten": "sx", "slovakia": "sk", "slovenia": "si",
+    "solomon islands": "sb", "somalia": "so", "south africa": "za",
+    "south georgia & south sandwich islands": "gs",
+    "south georgia and south sandwich islands": "gs", "south korea": "kr", "south sudan": "ss",
+    "spain": "es", "sri lanka": "lk", "st. barthelemy": "bl", "st. helena": "sh",
+    "st. kitts & nevis": "kn", "st. lucia": "lc", "st. martin": "mf",
+    "st. pierre & miquelon": "pm", "st. vincent & grenadines": "vc", "sudan": "sd",
+    "suriname": "sr", "svalbard & jan mayen": "sj", "svalbard and jan mayen": "sj",
+    "swaziland": "sz", "sweden": "se", "switzerland": "ch", "syria": "sy", "taiwan": "tw",
+    "tajikistan": "tj", "tanzania": "tz", "thailand": "th", "the gambia": "gm",
+    "timor leste": "tl", "timor-leste": "tl", "togo": "tg", "tokelau": "tk", "tonga": "to",
+    "trinidad": "tt", "trinidad & tobago": "tt", "trinidad and tobago": "tt",
+    "tristan da cunha": "ta", "tunisia": "tn", "turkiye": "tr", "turkmenistan": "tm",
+    "turks & caicos islands": "tc", "turks and caicos islands": "tc", "tuvalu": "tv",
+    "u.s. outlying islands": "um", "u.s. virgin islands": "vi", "uae": "ae", "uganda": "ug",
+    "uk": "gb", "ukraine": "ua", "united arab emirates": "ae", "united kingdom": "gb",
+    "united nations": "un", "united states": "us", "united states of america": "us",
+    "uruguay": "uy", "usa": "us", "uzbekistan": "uz", "vanuatu": "vu", "vatican": "va",
+    "vatican city": "va", "venezuela": "ve", "vietnam": "vn",
+    "wales": "1f3f4-e0067-e0062-e0077-e006c-e0073-e007f", "wallis & futuna": "wf",
+    "wallis and futuna": "wf", "western sahara": "eh", "yemen": "ye", "zambia": "zm",
+    "zimbabwe": "zw"
+  };
+
+  // Per-code overrides that replace the Twemoji render with a custom image.
+  // Belarus: the white-red-white flag (1918, 1991-1995), as used by the
+  // democratic movement, instead of the current official flag.
+  var FLAG_OVERRIDES = {
+    "by": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg/3840px-Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg.png"
   };
 
   // "Sweden — Loreen — Euphoria" -> the flag PNG for Sweden (or null).
   // The country is whatever comes before the first dash separator.
   function flagUrlForName(name) {
-    var country = name.split(/—|–| - /)[0].trim().toLowerCase();
+    var country = name.split(/—|–| - /)[0].trim().toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "") // strip accents
+      .replace(/’/g, "'");                          // curly apostrophe
     if (country.indexOf("the ") === 0) country = country.slice(4);
     var code = COUNTRY_CODES[country];
     if (!code) return null;
+    if (FLAG_OVERRIDES[code]) return FLAG_OVERRIDES[code];
     var hex = code.indexOf("-") !== -1
       ? code
       : code.split("").map(function (ch) {
