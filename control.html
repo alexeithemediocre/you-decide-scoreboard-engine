@@ -48,7 +48,36 @@
     margin-bottom: 14px;
   }
 
-  form#add-form { display: flex; gap: 10px; }
+  form#add-form { display: flex; gap: 10px; align-items: center; }
+
+  .flag-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  .flag-toggle input { accent-color: #ff4ecd; width: 16px; height: 16px; cursor: pointer; }
+
+  #flag-hint {
+    display: none;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #ffc86b;
+  }
+
+  .flag-img {
+    width: 26px;
+    flex-shrink: 0;
+  }
+  td.entry-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 
   input[type="text"] {
     flex: 1;
@@ -175,8 +204,10 @@
       <h2>Add entry</h2>
       <form id="add-form">
         <input type="text" id="entry-name" placeholder="e.g. Sweden — Carola — Fångad av en stormvind" maxlength="60" autocomplete="off">
+        <label class="flag-toggle"><input type="checkbox" id="flag-checkbox" checked> Add flag</label>
         <button type="submit" class="btn-add">Add</button>
       </form>
+      <div id="flag-hint"></div>
     </div>
 
     <div class="panel">
@@ -210,6 +241,52 @@
   var STORAGE_KEY = "ydse-state";
   var POINT_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
 
+  // Twitter's emoji flag renders (Twemoji), served from a public CDN.
+  var TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/";
+
+  // Country name (lowercase) -> ISO country code, or a full Twemoji hex
+  // sequence for special flags. Covers Eurovision participants + extras.
+  var COUNTRY_CODES = {
+    "albania": "al", "andorra": "ad", "armenia": "am", "australia": "au",
+    "austria": "at", "azerbaijan": "az", "belarus": "by", "belgium": "be",
+    "bosnia and herzegovina": "ba", "bosnia & herzegovina": "ba",
+    "bulgaria": "bg", "croatia": "hr", "cyprus": "cy",
+    "czechia": "cz", "czech republic": "cz", "denmark": "dk",
+    "estonia": "ee", "finland": "fi", "france": "fr", "georgia": "ge",
+    "germany": "de", "greece": "gr", "hungary": "hu", "iceland": "is",
+    "ireland": "ie", "israel": "il", "italy": "it", "kazakhstan": "kz",
+    "kosovo": "xk", "latvia": "lv", "lithuania": "lt", "luxembourg": "lu",
+    "malta": "mt", "moldova": "md", "monaco": "mc", "montenegro": "me",
+    "morocco": "ma", "netherlands": "nl", "north macedonia": "mk",
+    "macedonia": "mk", "norway": "no", "poland": "pl", "portugal": "pt",
+    "romania": "ro", "russia": "ru", "san marino": "sm", "serbia": "rs",
+    "slovakia": "sk", "slovenia": "si", "spain": "es", "sweden": "se",
+    "switzerland": "ch", "turkey": "tr", "turkiye": "tr", "türkiye": "tr",
+    "ukraine": "ua", "united kingdom": "gb", "uk": "gb", "great britain": "gb",
+    "united states": "us", "usa": "us", "canada": "ca", "japan": "jp",
+    "south korea": "kr", "china": "cn", "india": "in", "brazil": "br",
+    "mexico": "mx", "argentina": "ar", "new zealand": "nz",
+    "south africa": "za", "egypt": "eg", "liechtenstein": "li",
+    "faroe islands": "fo", "greenland": "gl", "wales": "1f3f4-e0067-e0062-e0077-e006c-e0073-e007f",
+    "scotland": "1f3f4-e0067-e0062-e0073-e0063-e0074-e007f",
+    "england": "1f3f4-e0067-e0062-e0065-e006e-e0067-e007f"
+  };
+
+  // "Sweden — Loreen — Euphoria" -> the flag PNG for Sweden (or null).
+  // The country is whatever comes before the first dash separator.
+  function flagUrlForName(name) {
+    var country = name.split(/—|–| - /)[0].trim().toLowerCase();
+    if (country.indexOf("the ") === 0) country = country.slice(4);
+    var code = COUNTRY_CODES[country];
+    if (!code) return null;
+    var hex = code.indexOf("-") !== -1
+      ? code
+      : code.split("").map(function (ch) {
+          return (0x1f1e6 + ch.charCodeAt(0) - 97).toString(16);
+        }).join("-");
+    return TWEMOJI_BASE + hex + ".png";
+  }
+
   var form = document.getElementById("add-form");
   var nameInput = document.getElementById("entry-name");
   var tbody = document.getElementById("entries-body");
@@ -233,16 +310,31 @@
     render();
   }
 
-  function addEntry(name) {
+  function addEntry(name, wantFlag) {
+    var flagUrl = wantFlag ? flagUrlForName(name) : null;
+    if (wantFlag && !flagUrl) {
+      showFlagHint('No flag found for "' + name.split(/—|–| - /)[0].trim() +
+        '" — entry added without one. (The country name must come first.)');
+    }
     var state = readState();
     state.entries.push({
       id: "e" + state.nextOrder + "-" + name.replace(/\W/g, "").slice(0, 12),
       name: name,
       points: 0,
-      order: state.nextOrder
+      order: state.nextOrder,
+      flagUrl: flagUrl
     });
     state.nextOrder += 1;
     writeState(state);
+  }
+
+  var flagHintTimer = null;
+  function showFlagHint(message) {
+    var hint = document.getElementById("flag-hint");
+    hint.textContent = message;
+    hint.style.display = "block";
+    clearTimeout(flagHintTimer);
+    flagHintTimer = setTimeout(function () { hint.style.display = "none"; }, 6000);
   }
 
   function awardPoints(id, amount) {
@@ -283,7 +375,15 @@
 
       var tdName = document.createElement("td");
       tdName.className = "entry-name";
-      tdName.textContent = entry.name;
+      if (entry.flagUrl) {
+        var flagImg = document.createElement("img");
+        flagImg.className = "flag-img";
+        flagImg.src = entry.flagUrl;
+        flagImg.alt = "";
+        flagImg.addEventListener("error", function () { flagImg.style.display = "none"; });
+        tdName.appendChild(flagImg);
+      }
+      tdName.appendChild(document.createTextNode(entry.name));
 
       var tdPoints = document.createElement("td");
       tdPoints.className = "entry-points";
@@ -348,7 +448,7 @@
     event.preventDefault();
     var name = nameInput.value.trim();
     if (!name) return;
-    addEntry(name);
+    addEntry(name, document.getElementById("flag-checkbox").checked);
     nameInput.value = "";
     nameInput.focus();
   });

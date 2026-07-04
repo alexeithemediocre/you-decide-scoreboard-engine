@@ -96,6 +96,13 @@
     box-shadow: 0 0 30px rgba(255, 78, 205, 0.45);
   }
 
+  .flag {
+    width: 30px;
+    flex-shrink: 0;
+  }
+  .flag.empty { visibility: hidden; } /* keep the slot so names align */
+  #board.no-flags .flag { display: none; } /* no flags anywhere: reclaim the space */
+
   .rank {
     width: 34px;
     font-size: 19px;
@@ -213,10 +220,17 @@
     row.className = "row entering";
     row.innerHTML =
       '<div class="rank"></div>' +
+      '<img class="flag empty" alt="">' +
       '<div class="name"></div>' +
       '<div class="delta"></div>' +
       '<div class="points"></div>';
     row.querySelector(".name").textContent = entry.name;
+    var flag = row.querySelector(".flag");
+    flag.addEventListener("error", function () { flag.classList.add("empty"); });
+    if (entry.flagUrl) {
+      flag.src = entry.flagUrl;
+      flag.classList.remove("empty");
+    }
     board.appendChild(row);
     // Let the browser paint the "entering" state first, then release it
     // so the fade-in transition can play.
@@ -239,6 +253,9 @@
     // continue down the right one. Odd totals leave the extra row on the left.
     var leftCount = Math.ceil(entries.length / 2);
     board.style.height = leftCount * (ROW_HEIGHT + ROW_GAP) + "px";
+
+    var anyFlags = entries.some(function (e) { return e.flagUrl; });
+    board.classList.toggle("no-flags", !anyFlags);
 
     entries.forEach(function (entry, index) {
       seenIds[entry.id] = true;

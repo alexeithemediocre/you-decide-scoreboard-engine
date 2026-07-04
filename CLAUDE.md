@@ -19,11 +19,13 @@ Shared state lives in `localStorage` under the key **`ydse-state`**:
 
 ```json
 {
-  "entries": [{ "id": "...", "name": "...", "points": 0, "order": 0 }],
+  "entries": [{ "id": "...", "name": "...", "points": 0, "order": 0, "flagUrl": "https://…/1f1f8-1f1ea.png" }],
   "nextOrder": 5,
   "lastAward": { "id": "...", "amount": 12, "seq": 3 }
 }
 ```
+
+`flagUrl` is optional (null/absent = no flag). It is resolved once at add time on the control page: the country is parsed from the entry name (text before the first dash), looked up in an inline country→code map, and turned into a Twemoji PNG URL on the jsDelivr CDN (`jdecked/twemoji`). Flags therefore need internet access to display; both pages hide broken flag images gracefully.
 
 `lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
