@@ -185,6 +185,8 @@
   var rowsById = {};
   // remember previous points so we know who just scored
   var prevPoints = {};
+  // last award sequence number we already flashed (null = first render)
+  var lastSeenAwardSeq = null;
 
   function readState() {
     try {
@@ -260,11 +262,21 @@
       row.classList.remove("rank-1", "rank-2", "rank-3");
       if (index < 3) row.classList.add("rank-" + (index + 1));
 
-      // Did this entry just gain points? Flash it and pop a "+N" badge.
+      // Did this entry just receive an award? Prefer the explicit award
+      // written by the control page (it also covers "+0" and negative
+      // corrections); fall back to a points diff for direct state edits.
+      var award = state.lastAward;
+      var isFreshAward = award && lastSeenAwardSeq !== null && award.seq !== lastSeenAwardSeq;
       var before = prevPoints[entry.id];
-      if (typeof before === "number" && entry.points > before) {
+      var badgeText = null;
+      if (isFreshAward && award.id === entry.id) {
+        badgeText = (award.amount < 0 ? "−" : "+") + Math.abs(award.amount);
+      } else if (!isFreshAward && typeof before === "number" && entry.points > before) {
+        badgeText = "+" + (entry.points - before);
+      }
+      if (badgeText !== null) {
         var delta = row.querySelector(".delta");
-        delta.textContent = "+" + (entry.points - before);
+        delta.textContent = badgeText;
         delta.classList.remove("show");
         void delta.offsetWidth; // restart the animation
         delta.classList.add("show");
@@ -283,6 +295,10 @@
         delete prevPoints[id];
       }
     });
+
+    // Remember which award we've shown (first render: don't replay an
+    // award that happened before this page was opened).
+    lastSeenAwardSeq = state.lastAward ? state.lastAward.seq : 0;
   }
 
   // React instantly when another tab changes the data…

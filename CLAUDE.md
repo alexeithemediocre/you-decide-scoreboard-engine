@@ -20,9 +20,12 @@ Shared state lives in `localStorage` under the key **`ydse-state`**:
 ```json
 {
   "entries": [{ "id": "...", "name": "...", "points": 0, "order": 0 }],
-  "nextOrder": 5
+  "nextOrder": 5,
+  "lastAward": { "id": "...", "amount": 12, "seq": 3 }
 }
 ```
+
+`lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
 - `control.html` writes state; `scoreboard.html` listens to the `storage` event **and** polls every 400 ms as a fallback.
 - Ranking: points descending, ties broken by `order` (insertion order) so sorting is stable.
