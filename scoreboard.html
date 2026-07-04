@@ -43,12 +43,17 @@
     -webkit-text-fill-color: transparent;
   }
 
-  header p {
-    margin-top: 6px;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.45);
+  /* Custom background layer: sits above the body gradient (the default
+     fallback) but below all content. Empty = default background shows. */
+  #bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+  #bg-layer img, #bg-layer video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   /* The board is a relative container; every row is absolutely positioned
@@ -169,10 +174,10 @@
 </style>
 </head>
 <body>
+  <div id="bg-layer"></div>
   <div class="stage">
     <header>
-      <h1>Grand Final</h1>
-      <p>Live Scoreboard</p>
+      <h1 id="board-title">Grand Final</h1>
     </header>
     <div id="board"></div>
     <div id="empty">Waiting for entries… add them on the control page.</div>
@@ -224,6 +229,75 @@
     return parts.filter(Boolean).join(" — ");
   }
 
+  // ---- Title (text / font / color set on the control page) ----
+  var titleEl = document.getElementById("board-title");
+  function applyTitle(state) {
+    var title = state.title || {};
+    titleEl.textContent = title.text || "Grand Final";
+    titleEl.style.fontFamily = title.font || "";
+    if (title.color) {
+      // solid custom color replaces the default gradient
+      titleEl.style.background = "none";
+      titleEl.style.webkitTextFillColor = title.color;
+      titleEl.style.color = title.color;
+    } else {
+      titleEl.style.background = "";
+      titleEl.style.webkitTextFillColor = "";
+      titleEl.style.color = "";
+    }
+  }
+
+  // ---- Custom background (file stored in IndexedDB by the control page) ----
+  function idbCall(mode, fn) {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open("ydse-files", 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore("files"); };
+      req.onerror = function () { reject(req.error); };
+      req.onsuccess = function () {
+        var db = req.result;
+        var r = fn(db.transaction("files", mode).objectStore("files"));
+        r.onsuccess = function () { resolve(r.result); db.close(); };
+        r.onerror = function () { reject(r.error); db.close(); };
+      };
+    });
+  }
+  function idbGet(key) { return idbCall("readonly", function (s) { return s.get(key); }); }
+
+  var bgLayer = document.getElementById("bg-layer");
+  var lastBgSeq = null;
+  var bgObjectUrl = null;
+  function clearBackground() {
+    bgLayer.innerHTML = ""; // default body gradient shows again
+    if (bgObjectUrl) { URL.revokeObjectURL(bgObjectUrl); bgObjectUrl = null; }
+  }
+  function applyBackground(state) {
+    var bg = state.background;
+    var seq = bg && bg.kind ? bg.seq : 0;
+    if (seq === lastBgSeq) return; // nothing changed
+    lastBgSeq = seq;
+    if (!seq) { clearBackground(); return; }
+    idbGet("background").then(function (record) {
+      if (!record || !record.blob) { clearBackground(); return; }
+      clearBackground();
+      bgObjectUrl = URL.createObjectURL(record.blob);
+      var el;
+      if (bg.kind === "video") {
+        el = document.createElement("video");
+        el.muted = true;
+        el.loop = true;
+        el.autoplay = true;
+        el.playsInline = true;
+      } else {
+        el = document.createElement("img");
+      }
+      // Unreadable/corrupt file: drop back to the default background
+      el.addEventListener("error", clearBackground);
+      el.src = bgObjectUrl;
+      if (bg.kind === "video") el.play().catch(function () {});
+      bgLayer.appendChild(el);
+    }).catch(clearBackground);
+  }
+
   function sortedEntries(state) {
     // Higher points first; ties broken by who was added first (stable)
     return state.entries.slice().sort(function (a, b) {
@@ -261,6 +335,8 @@
 
   function render() {
     var state = readState();
+    applyTitle(state);
+    applyBackground(state);
     var entries = sortedEntries(state);
     var seenIds = {};
 

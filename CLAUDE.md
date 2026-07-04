@@ -29,6 +29,11 @@ Shared state lives in `localStorage` under the key **`ydse-state`**:
 
 Entry names are structured (`country` required; `artist`/`song` optional, editable inline on the control page). Both pages' `readState` migrate legacy entries that still have a single `name` string by splitting on dashes. `display` toggles whether artist/song appear on the scoreboard; the control page has checkboxes for it.
 
+Further optional state keys, all set from the control page:
+
+- `title`: `{ text, font, color }` — scoreboard heading. Empty strings mean the defaults (text "Grand Final", the CSS font, the pink/purple gradient; a non-empty `color` replaces the gradient with a solid color).
+- `background`: `{ kind: "image"|"video", name, seq }` or null. The actual file is a Blob in **IndexedDB** (db `ydse-files`, store `files`, key `background`) because localStorage can't hold videos; `seq` increments on every change so the scoreboard knows to re-read the blob. Videos play muted and looped. Any failure (missing blob, unreadable file, IndexedDB unavailable) makes the scoreboard fall back to its default CSS gradient background.
+
 `flagUrl` is optional (null/absent = no flag). It is resolved once at add time on the control page: the country is parsed from the entry name (text before the first dash), looked up in an inline country→code map, and turned into a Twemoji PNG URL on the jsDelivr CDN (`jdecked/twemoji`). Flags therefore need internet access to display; both pages hide broken flag images gracefully.
 
 The map covers all 258 emoji flags (every country and territory, incl. England/Scotland/Wales tag sequences) plus typed-name aliases. It is **generated** by `tools/gen-flags.mjs` (Node): the script enumerates CLDR region names via `Intl.DisplayNames`, verifies each Twemoji PNG exists on the CDN, and prints the `COUNTRY_CODES` literal to paste into control.html — rerun it rather than editing the map by hand. `FLAG_OVERRIDES` in control.html maps ISO codes to replacement image URLs and wins over Twemoji; Belarus (`by`) deliberately uses the white-red-white 1918/1991–1995 flag from Wikimedia — do not "fix" it to the official flag.
