@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scoreboard — Live</title>
+<style>
+  :root {
+    --row-height: 64px;
+    --row-gap: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 20% 0%, #2b1055 0%, #0d0d2b 55%, #060616 100%);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  .stage {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, #ff4ecd, #b249f8, #4ec9ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  header p {
+    margin-top: 6px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  /* The board is a relative container; every row is absolutely positioned
+     and moved with translateY. Changing the translateY triggers the CSS
+     transition, which is what makes rows glide up and down. */
+  #board {
+    position: relative;
+    transition: height 0.6s ease;
+  }
+
+  .row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--row-height);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(4px);
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                background 0.4s ease, border-color 0.4s ease, opacity 0.5s ease;
+    opacity: 1;
+  }
+
+  .row.entering {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Gold / silver / bronze accents for the top three */
+  .row.rank-1 { border-color: rgba(255, 215, 0, 0.55); box-shadow: 0 0 24px rgba(255, 215, 0, 0.18); }
+  .row.rank-2 { border-color: rgba(200, 200, 220, 0.45); }
+  .row.rank-3 { border-color: rgba(205, 127, 50, 0.45); }
+
+  /* Flash when an entry just received points */
+  .row.scored {
+    background: linear-gradient(90deg, rgba(255, 78, 205, 0.45), rgba(178, 73, 248, 0.25));
+    border-color: #ff4ecd;
+    box-shadow: 0 0 30px rgba(255, 78, 205, 0.45);
+  }
+
+  .rank {
+    width: 40px;
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: rgba(255,255,255,0.85);
+    flex-shrink: 0;
+  }
+  .row.rank-1 .rank { color: #ffd700; }
+
+  .name {
+    flex: 1;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .points {
+    min-width: 72px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.15);
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* Little "+N" badge that pops up next to the points when scored */
+  .delta {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    font-weight: 800;
+    color: #ff4ecd;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .delta.show {
+    animation: pop 1.6s ease forwards;
+  }
+  @keyframes pop {
+    0%   { opacity: 0; transform: translateY(-50%) scale(0.5); }
+    15%  { opacity: 1; transform: translateY(-50%) scale(1.25); }
+    35%  { transform: translateY(-50%) scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-90%) scale(1); }
+  }
+
+  #empty {
+    text-align: center;
+    padding: 60px 0;
+    font-size: 15px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.35);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <header>
+      <h1>Grand Final</h1>
+      <p>Live Scoreboard</p>
+    </header>
+    <div id="board"></div>
+    <div id="empty">Waiting for entries… add them on the control page.</div>
+  </div>
+
+<script>
+(function () {
+  var STORAGE_KEY = "ydse-state";
+  var ROW_HEIGHT = 64;
+  var ROW_GAP = 10;
+
+  var board = document.getElementById("board");
+  var emptyNote = document.getElementById("empty");
+
+  // id -> row element, so we can reuse DOM nodes and animate them
+  var rowsById = {};
+  // remember previous points so we know who just scored
+  var prevPoints = {};
+
+  function readState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { entries: [] };
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.entries)) return { entries: [] };
+      return parsed;
+    } catch (e) {
+      return { entries: [] };
+    }
+  }
+
+  function sortedEntries(state) {
+    // Higher points first; ties broken by who was added first (stable)
+    return state.entries.slice().sort(function (a, b) {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.order - b.order;
+    });
+  }
+
+  function buildRow(entry) {
+    var row = document.createElement("div");
+    row.className = "row entering";
+    row.innerHTML =
+      '<div class="rank"></div>' +
+      '<div class="name"></div>' +
+      '<div class="delta"></div>' +
+      '<div class="points"></div>';
+    row.querySelector(".name").textContent = entry.name;
+    board.appendChild(row);
+    // Let the browser paint the "entering" state first, then release it
+    // so the fade-in transition can play.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        row.classList.remove("entering");
+      });
+    });
+    return row;
+  }
+
+  function render() {
+    var state = readState();
+    var entries = sortedEntries(state);
+    var seenIds = {};
+
+    emptyNote.style.display = entries.length ? "none" : "block";
+    board.style.height = entries.length * (ROW_HEIGHT + ROW_GAP) + "px";
+
+    entries.forEach(function (entry, index) {
+      seenIds[entry.id] = true;
+      var row = rowsById[entry.id];
+      if (!row) {
+        row = buildRow(entry);
+        rowsById[entry.id] = row;
+      }
+
+      // Position by rank — the transform transition animates the move.
+      row.style.transform = "translateY(" + index * (ROW_HEIGHT + ROW_GAP) + "px)";
+      row.querySelector(".rank").textContent = index + 1;
+      row.querySelector(".points").textContent = entry.points;
+      row.querySelector(".name").textContent = entry.name;
+
+      row.classList.remove("rank-1", "rank-2", "rank-3");
+      if (index < 3) row.classList.add("rank-" + (index + 1));
+
+      // Did this entry just gain points? Flash it and pop a "+N" badge.
+      var before = prevPoints[entry.id];
+      if (typeof before === "number" && entry.points > before) {
+        var delta = row.querySelector(".delta");
+        delta.textContent = "+" + (entry.points - before);
+        delta.classList.remove("show");
+        void delta.offsetWidth; // restart the animation
+        delta.classList.add("show");
+
+        row.classList.add("scored");
+        setTimeout(function () { row.classList.remove("scored"); }, 1500);
+      }
+      prevPoints[entry.id] = entry.points;
+    });
+
+    // Remove rows for deleted entries
+    Object.keys(rowsById).forEach(function (id) {
+      if (!seenIds[id]) {
+        board.removeChild(rowsById[id]);
+        delete rowsById[id];
+        delete prevPoints[id];
+      }
+    });
+  }
+
+  // React instantly when another tab changes the data…
+  window.addEventListener("storage", function (event) {
+    if (event.key === STORAGE_KEY) render();
+  });
+  // …and also poll as a safety net (covers browsers where the storage
+  // event does not fire reliably for local files).
+  setInterval(render, 400);
+
+  render();
+})();
+</script>
+</body>
+</html>

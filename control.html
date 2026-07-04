@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scoreboard — Control Room</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: #12122b;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #fff;
+    padding: 32px 20px 60px;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #ff4ecd;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 28px;
+  }
+
+  .panel {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .panel h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 14px;
+  }
+
+  form#add-form { display: flex; gap: 10px; }
+
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: #ff4ecd; }
+
+  button {
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    color: #fff;
+    transition: filter 0.15s ease, transform 0.05s ease;
+  }
+  button:hover { filter: brightness(1.2); }
+  button:active { transform: scale(0.96); }
+
+  .btn-add {
+    padding: 12px 22px;
+    background: linear-gradient(90deg, #ff4ecd, #b249f8);
+    font-size: 15px;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.4);
+    padding: 0 8px 10px;
+  }
+  td {
+    padding: 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    vertical-align: middle;
+  }
+  td.entry-name { font-size: 16px; font-weight: 600; }
+  td.entry-points {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    width: 60px;
+    text-align: center;
+  }
+
+  .point-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn-points {
+    min-width: 42px;
+    padding: 8px 10px;
+    font-size: 14px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-points.douze {
+    background: linear-gradient(90deg, #ffd700, #ff9d00);
+    color: #221a00;
+  }
+
+  .btn-delete {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(255, 60, 60, 0.15);
+    border: 1px solid rgba(255, 60, 60, 0.4);
+    color: #ff8080;
+  }
+
+  .danger-zone { display: flex; gap: 10px; }
+  .btn-danger {
+    padding: 10px 18px;
+    font-size: 13px;
+    background: rgba(255, 60, 60, 0.12);
+    border: 1px solid rgba(255, 60, 60, 0.35);
+    color: #ff9090;
+  }
+
+  .hint {
+    margin-top: 24px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.6;
+  }
+  .hint a { color: #ff4ecd; }
+
+  #no-entries {
+    padding: 20px 8px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Control Room</h1>
+    <div class="subtitle">Manage entries and award points — the scoreboard updates live.</div>
+
+    <div class="panel">
+      <h2>Add entry</h2>
+      <form id="add-form">
+        <input type="text" id="entry-name" placeholder="e.g. Sweden — Carola — Fångad av en stormvind" maxlength="60" autocomplete="off">
+        <button type="submit" class="btn-add">Add</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Entries &amp; points</h2>
+      <table id="entries-table">
+        <thead>
+          <tr><th>Entry</th><th style="text-align:center">Pts</th><th>Award points</th><th></th></tr>
+        </thead>
+        <tbody id="entries-body"></tbody>
+      </table>
+      <div id="no-entries">No entries yet — add one above.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Danger zone</h2>
+      <div class="danger-zone">
+        <button class="btn-danger" id="reset-points">Reset all points to 0</button>
+        <button class="btn-danger" id="clear-all">Delete all entries</button>
+      </div>
+    </div>
+
+    <div class="hint">
+      Open <a href="scoreboard.html" target="_blank">scoreboard.html</a> in another window
+      (that's the one you capture in OBS / share on stream). Both pages must be open in the
+      same browser on this computer.
+    </div>
+  </div>
+
+<script>
+(function () {
+  var STORAGE_KEY = "ydse-state";
+  var POINT_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12];
+
+  var form = document.getElementById("add-form");
+  var nameInput = document.getElementById("entry-name");
+  var tbody = document.getElementById("entries-body");
+  var noEntries = document.getElementById("no-entries");
+
+  function readState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { entries: [], nextOrder: 0 };
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.entries)) return { entries: [], nextOrder: 0 };
+      if (typeof parsed.nextOrder !== "number") parsed.nextOrder = parsed.entries.length;
+      return parsed;
+    } catch (e) {
+      return { entries: [], nextOrder: 0 };
+    }
+  }
+
+  function writeState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    render();
+  }
+
+  function addEntry(name) {
+    var state = readState();
+    state.entries.push({
+      id: "e" + state.nextOrder + "-" + name.replace(/\W/g, "").slice(0, 12),
+      name: name,
+      points: 0,
+      order: state.nextOrder
+    });
+    state.nextOrder += 1;
+    writeState(state);
+  }
+
+  function awardPoints(id, amount) {
+    var state = readState();
+    var entry = state.entries.find(function (e) { return e.id === id; });
+    if (!entry) return;
+    entry.points += amount;
+    if (entry.points < 0) entry.points = 0;
+    writeState(state);
+  }
+
+  function deleteEntry(id) {
+    var state = readState();
+    state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    writeState(state);
+  }
+
+  function render() {
+    var state = readState();
+    // Show entries sorted by current score, same as the scoreboard
+    var entries = state.entries.slice().sort(function (a, b) {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.order - b.order;
+    });
+
+    noEntries.style.display = entries.length ? "none" : "block";
+    tbody.innerHTML = "";
+
+    entries.forEach(function (entry) {
+      var tr = document.createElement("tr");
+
+      var tdName = document.createElement("td");
+      tdName.className = "entry-name";
+      tdName.textContent = entry.name;
+
+      var tdPoints = document.createElement("td");
+      tdPoints.className = "entry-points";
+      tdPoints.textContent = entry.points;
+
+      var tdButtons = document.createElement("td");
+      var buttonBox = document.createElement("div");
+      buttonBox.className = "point-buttons";
+      POINT_VALUES.forEach(function (value) {
+        var btn = document.createElement("button");
+        btn.className = "btn-points" + (value === 12 ? " douze" : "");
+        btn.textContent = "+" + value;
+        btn.addEventListener("click", function () { awardPoints(entry.id, value); });
+        buttonBox.appendChild(btn);
+      });
+      tdButtons.appendChild(buttonBox);
+
+      var tdDelete = document.createElement("td");
+      var delBtn = document.createElement("button");
+      delBtn.className = "btn-delete";
+      delBtn.textContent = "Remove";
+      delBtn.addEventListener("click", function () {
+        if (confirm('Remove "' + entry.name + '" from the scoreboard?')) {
+          deleteEntry(entry.id);
+        }
+      });
+      tdDelete.appendChild(delBtn);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdPoints);
+      tr.appendChild(tdButtons);
+      tr.appendChild(tdDelete);
+      tbody.appendChild(tr);
+    });
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var name = nameInput.value.trim();
+    if (!name) return;
+    addEntry(name);
+    nameInput.value = "";
+    nameInput.focus();
+  });
+
+  document.getElementById("reset-points").addEventListener("click", function () {
+    if (!confirm("Reset every entry's points to 0?")) return;
+    var state = readState();
+    state.entries.forEach(function (e) { e.points = 0; });
+    writeState(state);
+  });
+
+  document.getElementById("clear-all").addEventListener("click", function () {
+    if (!confirm("Delete ALL entries? This cannot be undone.")) return;
+    writeState({ entries: [], nextOrder: 0 });
+  });
+
+  // Pick up changes made in other tabs too
+  window.addEventListener("storage", function (event) {
+    if (event.key === STORAGE_KEY) render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
