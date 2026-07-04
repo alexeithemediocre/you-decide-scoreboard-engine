@@ -41,7 +41,7 @@ The map covers all 258 emoji flags (every country and territory, incl. England/S
 `lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
 - `control.html` writes state; `scoreboard.html` listens to the `storage` event **and** polls every 400 ms as a fallback.
-- Ranking: points descending, ties broken by `order` (insertion order) so sorting is stable.
+- Ranking: points descending, then `tieBreak` ascending, then `order` (insertion order). `tieBreak` defaults to `order`; the control page's ▲▼ arrows permute it within a group of equal-point entries to resolve ties manually. Any award that actually changes an entry's points resets that entry's `tieBreak` to `order` ("manual nudges are forgotten"), as does "Reset all points". The sort comparator must stay identical in both pages.
 - Consequence: both pages must be open in the same browser on the same machine. Multi-machine or viewer participation would require a real backend — that is the anticipated future direction ("engine" in the repo name).
 
 If you change the state shape or storage key, update **both** pages — they each have their own copy of the read/write helpers by design (self-contained files).

@@ -228,6 +228,21 @@
   }
 
   .row-actions { display: flex; gap: 6px; }
+
+  .move-buttons { display: flex; flex-direction: column; gap: 4px; }
+  .btn-arrow {
+    padding: 4px 9px;
+    font-size: 11px;
+    line-height: 1;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.8);
+  }
+  .btn-arrow:disabled {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
+  }
   .btn-edit {
     padding: 8px 12px;
     font-size: 13px;
@@ -387,7 +402,7 @@
       <h2>Entries &amp; points</h2>
       <table id="entries-table">
         <thead>
-          <tr><th>Entry</th><th style="text-align:center">Pts</th><th>Award points</th><th></th></tr>
+          <tr><th></th><th>Entry</th><th style="text-align:center">Pts</th><th>Award points</th><th></th></tr>
         </thead>
         <tbody id="entries-body"></tbody>
       </table>
@@ -566,8 +581,18 @@
         e.song = parts.slice(2).join(" — ") || "";
         delete e.name;
       }
+      // manual tie-break position; defaults to insertion order
+      if (typeof e.tieBreak !== "number") e.tieBreak = e.order;
     });
     return state;
+  }
+
+  // Ranking: points first; tieBreak only ever separates equal-point
+  // entries (the ▲▼ arrows adjust it); insertion order as backstop.
+  function compareEntries(a, b) {
+    if (b.points !== a.points) return b.points - a.points;
+    if (a.tieBreak !== b.tieBreak) return a.tieBreak - b.tieBreak;
+    return a.order - b.order;
   }
 
   // "Sweden — Loreen — Euphoria", respecting what the entry actually has
@@ -590,6 +615,7 @@
       song: song,
       points: 0,
       order: state.nextOrder,
+      tieBreak: state.nextOrder,
       flagUrl: flagUrl
     });
     state.nextOrder += 1;
@@ -704,8 +730,12 @@
     var state = readState();
     var entry = state.entries.find(function (e) { return e.id === id; });
     if (!entry) return;
+    var pointsBefore = entry.points;
     entry.points += amount;
     if (entry.points < 0) entry.points = 0;
+    // A real score change forgets any manual ▲▼ tie-break nudges:
+    // the entry settles wherever the default ranking puts it.
+    if (entry.points !== pointsBefore) entry.tieBreak = entry.order;
     // Record the award itself so the scoreboard can flash the entry even
     // when the score doesn't change (a dramatic "+0", for example).
     state.lastAward = {
@@ -719,6 +749,25 @@
   function deleteEntry(id) {
     var state = readState();
     state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    writeState(state);
+  }
+
+  // Move an entry one place up (dir -1) or down (dir +1) within its
+  // group of equal-point entries by permuting the group's tieBreak
+  // values. tieBreak stays a permutation of the group's order values,
+  // so a later reset (tieBreak = order) lands back in the same set.
+  function moveEntry(id, dir) {
+    var state = readState();
+    var sorted = state.entries.slice().sort(compareEntries);
+    var index = sorted.findIndex(function (e) { return e.id === id; });
+    var target = sorted[index + dir];
+    if (!target || target.points !== sorted[index].points) return;
+    var group = sorted.filter(function (e) { return e.points === sorted[index].points; });
+    var values = group.map(function (e) { return e.order; }).sort(function (a, b) { return a - b; });
+    group.forEach(function (e, i) { e.tieBreak = values[i]; }); // normalize to display order
+    var gi = group.indexOf(sorted[index]);
+    group[gi].tieBreak = values[gi + dir];
+    group[gi + dir].tieBreak = values[gi];
     writeState(state);
   }
 
@@ -762,16 +811,31 @@
       ? "Custom " + state.background.kind + ': "' + (state.background.name || "unnamed") + '"'
       : "Default background.";
     // Show entries sorted by current score, same as the scoreboard
-    var entries = state.entries.slice().sort(function (a, b) {
-      if (b.points !== a.points) return b.points - a.points;
-      return a.order - b.order;
-    });
+    var entries = state.entries.slice().sort(compareEntries);
 
     noEntries.style.display = entries.length ? "none" : "block";
     tbody.innerHTML = "";
 
-    entries.forEach(function (entry) {
+    entries.forEach(function (entry, index) {
       var tr = document.createElement("tr");
+
+      // ▲▼ tie-break arrows: only usable against a tied neighbor
+      var tdMove = document.createElement("td");
+      var moveBox = document.createElement("div");
+      moveBox.className = "move-buttons";
+      [[-1, "▲"], [1, "▼"]].forEach(function (arrow) {
+        var btn = document.createElement("button");
+        btn.className = "btn-arrow";
+        btn.textContent = arrow[1];
+        var neighbor = entries[index + arrow[0]];
+        btn.disabled = !neighbor || neighbor.points !== entry.points;
+        btn.title = btn.disabled
+          ? "Only tied entries can swap positions"
+          : "Swap with the entry " + (arrow[0] < 0 ? "above" : "below");
+        btn.addEventListener("click", function () { moveEntry(entry.id, arrow[0]); });
+        moveBox.appendChild(btn);
+      });
+      tdMove.appendChild(moveBox);
 
       var tdName = document.createElement("td");
       tdName.className = "entry-name";
@@ -881,6 +945,7 @@
       }
       tdActions.appendChild(actions);
 
+      tr.appendChild(tdMove);
       tr.appendChild(tdName);
       tr.appendChild(tdPoints);
       tr.appendChild(tdButtons);
@@ -993,7 +1058,7 @@
   document.getElementById("reset-points").addEventListener("click", function () {
     if (!confirm("Reset every entry's points to 0?")) return;
     var state = readState();
-    state.entries.forEach(function (e) { e.points = 0; });
+    state.entries.forEach(function (e) { e.points = 0; e.tieBreak = e.order; });
     writeState(state);
   });
 

@@ -217,6 +217,7 @@
         e.artist = parts[1] || "";
         e.song = parts.slice(2).join(" — ") || "";
       }
+      if (typeof e.tieBreak !== "number") e.tieBreak = e.order;
     });
     return state;
   }
@@ -299,9 +300,11 @@
   }
 
   function sortedEntries(state) {
-    // Higher points first; ties broken by who was added first (stable)
+    // Higher points first; ties broken by tieBreak (the control page's
+    // ▲▼ arrows), then by who was added first. Must match control.html.
     return state.entries.slice().sort(function (a, b) {
       if (b.points !== a.points) return b.points - a.points;
+      if (a.tieBreak !== b.tieBreak) return a.tieBreak - b.tieBreak;
       return a.order - b.order;
     });
   }
