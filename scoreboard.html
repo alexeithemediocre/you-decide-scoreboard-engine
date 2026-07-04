@@ -196,15 +196,32 @@
   var lastSeenAwardSeq = null;
 
   function readState() {
+    var state;
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { entries: [] };
-      var parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.entries)) return { entries: [] };
-      return parsed;
+      var parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      state = parsed && Array.isArray(parsed.entries) ? parsed : { entries: [] };
     } catch (e) {
-      return { entries: [] };
+      state = { entries: [] };
     }
+    if (!state.display) state.display = { showArtist: true, showSong: true };
+    // Migrate pre-structured entries: "Country — Artist — Song" in .name
+    state.entries.forEach(function (e) {
+      if (e.country === undefined) {
+        var parts = (e.name || "").split(/—|–| - /).map(function (p) { return p.trim(); });
+        e.country = parts[0] || "";
+        e.artist = parts[1] || "";
+        e.song = parts.slice(2).join(" — ") || "";
+      }
+    });
+    return state;
+  }
+
+  // What the stream sees: country, then artist/song if enabled and present
+  function displayName(entry, display) {
+    var parts = [entry.country];
+    if (display.showArtist && entry.artist) parts.push(entry.artist);
+    if (display.showSong && entry.song) parts.push(entry.song);
+    return parts.filter(Boolean).join(" — ");
   }
 
   function sortedEntries(state) {
@@ -224,7 +241,7 @@
       '<div class="name"></div>' +
       '<div class="delta"></div>' +
       '<div class="points"></div>';
-    row.querySelector(".name").textContent = entry.name;
+    row.querySelector(".name").textContent = entry.country;
     var flag = row.querySelector(".flag");
     flag.addEventListener("error", function () { flag.classList.add("empty"); });
     if (entry.flagUrl) {
@@ -274,7 +291,7 @@
       row.style.transform = "translate(" + x + ", " + y + "px)";
       row.querySelector(".rank").textContent = index + 1;
       row.querySelector(".points").textContent = entry.points;
-      row.querySelector(".name").textContent = entry.name;
+      row.querySelector(".name").textContent = displayName(entry, state.display);
 
       row.classList.remove("rank-1", "rank-2", "rank-3");
       if (index < 3) row.classList.add("rank-" + (index + 1));

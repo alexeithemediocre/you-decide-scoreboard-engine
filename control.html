@@ -227,6 +227,40 @@
     color: #ff8080;
   }
 
+  .row-actions { display: flex; gap: 6px; }
+  .btn-edit {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(178, 73, 248, 0.15);
+    border: 1px solid rgba(178, 73, 248, 0.5);
+    color: #cf9bff;
+  }
+  .btn-save {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: linear-gradient(90deg, #21b06a, #178f53);
+  }
+  .btn-cancel {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .edit-fields { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .edit-fields input {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+  }
+  .edit-fields input:focus { border-color: #ff4ecd; }
+
+  .display-options { display: flex; gap: 24px; }
+
   .danger-zone { display: flex; gap: 10px; }
   .btn-danger {
     padding: 10px 18px;
@@ -259,7 +293,9 @@
     <div class="panel">
       <h2>Add entry</h2>
       <form id="add-form">
-        <input type="text" id="entry-name" placeholder="e.g. Sweden — Carola — Fångad av en stormvind" maxlength="60" autocomplete="off">
+        <input type="text" id="entry-country" placeholder="Country — e.g. Sweden" maxlength="40" autocomplete="off">
+        <input type="text" id="entry-artist" placeholder="Artist (optional)" maxlength="60" autocomplete="off">
+        <input type="text" id="entry-song" placeholder="Song (optional)" maxlength="60" autocomplete="off">
         <label class="flag-toggle"><input type="checkbox" id="flag-checkbox" checked> Add flag</label>
         <button type="submit" class="btn-add">Add</button>
       </form>
@@ -268,6 +304,14 @@
       <div id="flag-gallery">
         <input type="text" id="flag-search" placeholder="Filter flags… e.g. Réunion" autocomplete="off">
         <div id="flag-grid"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Scoreboard display</h2>
+      <div class="display-options">
+        <label class="flag-toggle"><input type="checkbox" id="show-artist" checked> Show artist names</label>
+        <label class="flag-toggle"><input type="checkbox" id="show-song" checked> Show song titles</label>
       </div>
     </div>
 
@@ -423,21 +467,44 @@
   }
 
   var form = document.getElementById("add-form");
-  var nameInput = document.getElementById("entry-name");
+  var countryInput = document.getElementById("entry-country");
+  var artistInput = document.getElementById("entry-artist");
+  var songInput = document.getElementById("entry-song");
+  var showArtistBox = document.getElementById("show-artist");
+  var showSongBox = document.getElementById("show-song");
   var tbody = document.getElementById("entries-body");
   var noEntries = document.getElementById("no-entries");
 
+  // id of the entry currently being edited inline (null = none)
+  var editingId = null;
+
   function readState() {
+    var state;
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { entries: [], nextOrder: 0 };
-      var parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.entries)) return { entries: [], nextOrder: 0 };
-      if (typeof parsed.nextOrder !== "number") parsed.nextOrder = parsed.entries.length;
-      return parsed;
+      var parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      state = parsed && Array.isArray(parsed.entries) ? parsed : { entries: [] };
     } catch (e) {
-      return { entries: [], nextOrder: 0 };
+      state = { entries: [] };
     }
+    if (typeof state.nextOrder !== "number") state.nextOrder = state.entries.length;
+    if (!state.display) state.display = { showArtist: true, showSong: true };
+    // Migrate pre-structured entries: "Country — Artist — Song" in .name
+    state.entries.forEach(function (e) {
+      if (e.country === undefined) {
+        var parts = (e.name || "").split(/—|–| - /).map(function (p) { return p.trim(); });
+        e.country = parts[0] || "";
+        e.artist = parts[1] || "";
+        e.song = parts.slice(2).join(" — ") || "";
+        delete e.name;
+      }
+    });
+    return state;
+  }
+
+  // "Sweden — Loreen — Euphoria", respecting what the entry actually has
+  function fullName(entry) {
+    return [entry.country, entry.artist, entry.song]
+      .filter(Boolean).join(" — ");
   }
 
   function writeState(state) {
@@ -445,11 +512,13 @@
     render();
   }
 
-  function addEntryCore(name, flagUrl) {
+  function addEntryCore(country, artist, song, flagUrl) {
     var state = readState();
     state.entries.push({
-      id: "e" + state.nextOrder + "-" + name.replace(/\W/g, "").slice(0, 12),
-      name: name,
+      id: "e" + state.nextOrder + "-" + country.replace(/\W/g, "").slice(0, 12),
+      country: country,
+      artist: artist,
+      song: song,
       points: 0,
       order: state.nextOrder,
       flagUrl: flagUrl
@@ -458,13 +527,12 @@
     writeState(state);
   }
 
-  function addEntry(name, wantFlag) {
-    var flagUrl = wantFlag ? flagUrlForName(name) : null;
+  function addEntry(country, artist, song, wantFlag) {
+    var flagUrl = wantFlag ? flagUrlForName(country) : null;
     if (wantFlag && !flagUrl) {
-      showFlagHint('No flag found for "' + name.split(/—|–| - /)[0].trim() +
-        '" — entry added without one. (The country name must come first.)');
+      showFlagHint('No flag found for "' + country + '" — entry added without one.');
     }
-    addEntryCore(name, flagUrl);
+    addEntryCore(country, artist, song, flagUrl);
   }
 
   // ---- Flag gallery (built lazily on first open) ----
@@ -522,14 +590,14 @@
       cell.appendChild(img);
       cell.appendChild(label);
 
-      // Click to add this country as an entry, flag included
+      // Click to add this country as an entry (country only), flag included
       cell.addEventListener("click", function () {
-        var duplicate = readState().entries.some(function (e) { return e.name === flag.name; });
+        var duplicate = readState().entries.some(function (e) { return e.country === flag.name; });
         if (duplicate) {
           showFlagHint('"' + flag.name + '" is already on the board.');
           return;
         }
-        addEntryCore(flag.name, flag.url);
+        addEntryCore(flag.name, "", "", flag.url);
         cell.classList.add("added");
         setTimeout(function () { cell.classList.remove("added"); }, 900);
       });
@@ -585,8 +653,35 @@
     writeState(state);
   }
 
+  function saveEntryEdit(id, inputs) {
+    var country = inputs.country.value.trim();
+    if (!country) {
+      inputs.country.focus();
+      return; // a country name is required
+    }
+    var state = readState();
+    var entry = state.entries.find(function (e) { return e.id === id; });
+    if (entry) {
+      var countryChanged = entry.country !== country;
+      entry.country = country;
+      entry.artist = inputs.artist.value.trim();
+      entry.song = inputs.song.value.trim();
+      // Entry had a flag and the country changed: re-resolve it
+      if (countryChanged && entry.flagUrl) {
+        entry.flagUrl = flagUrlForName(country);
+        if (!entry.flagUrl) {
+          showFlagHint('No flag found for "' + country + '" — the entry keeps no flag.');
+        }
+      }
+    }
+    editingId = null;
+    writeState(state);
+  }
+
   function render() {
     var state = readState();
+    showArtistBox.checked = state.display.showArtist;
+    showSongBox.checked = state.display.showSong;
     // Show entries sorted by current score, same as the scoreboard
     var entries = state.entries.slice().sort(function (a, b) {
       if (b.points !== a.points) return b.points - a.points;
@@ -609,7 +704,23 @@
         flagImg.addEventListener("error", function () { flagImg.style.display = "none"; });
         tdName.appendChild(flagImg);
       }
-      tdName.appendChild(document.createTextNode(entry.name));
+      var editInputs = null;
+      if (entry.id === editingId) {
+        editInputs = { country: null, artist: null, song: null };
+        var fields = document.createElement("div");
+        fields.className = "edit-fields";
+        [["country", "Country"], ["artist", "Artist"], ["song", "Song"]].forEach(function (f) {
+          var input = document.createElement("input");
+          input.type = "text";
+          input.placeholder = f[1];
+          input.value = entry[f[0]] || "";
+          editInputs[f[0]] = input;
+          fields.appendChild(input);
+        });
+        tdName.appendChild(fields);
+      } else {
+        tdName.appendChild(document.createTextNode(fullName(entry)));
+      }
 
       var tdPoints = document.createElement("td");
       tdPoints.className = "entry-points";
@@ -651,33 +762,78 @@
 
       tdButtons.appendChild(buttonBox);
 
-      var tdDelete = document.createElement("td");
-      var delBtn = document.createElement("button");
-      delBtn.className = "btn-delete";
-      delBtn.textContent = "Remove";
-      delBtn.addEventListener("click", function () {
-        if (confirm('Remove "' + entry.name + '" from the scoreboard?')) {
-          deleteEntry(entry.id);
-        }
-      });
-      tdDelete.appendChild(delBtn);
+      var tdActions = document.createElement("td");
+      var actions = document.createElement("div");
+      actions.className = "row-actions";
+      if (entry.id === editingId) {
+        var saveBtn = document.createElement("button");
+        saveBtn.className = "btn-save";
+        saveBtn.textContent = "Save";
+        saveBtn.addEventListener("click", function () {
+          saveEntryEdit(entry.id, editInputs);
+        });
+        var cancelBtn = document.createElement("button");
+        cancelBtn.className = "btn-cancel";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", function () {
+          editingId = null;
+          render();
+        });
+        actions.appendChild(saveBtn);
+        actions.appendChild(cancelBtn);
+      } else {
+        var editBtn = document.createElement("button");
+        editBtn.className = "btn-edit";
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", function () {
+          editingId = entry.id;
+          render();
+        });
+        var delBtn = document.createElement("button");
+        delBtn.className = "btn-delete";
+        delBtn.textContent = "Remove";
+        delBtn.addEventListener("click", function () {
+          if (confirm('Remove "' + fullName(entry) + '" from the scoreboard?')) {
+            deleteEntry(entry.id);
+          }
+        });
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+      }
+      tdActions.appendChild(actions);
 
       tr.appendChild(tdName);
       tr.appendChild(tdPoints);
       tr.appendChild(tdButtons);
-      tr.appendChild(tdDelete);
+      tr.appendChild(tdActions);
       tbody.appendChild(tr);
     });
   }
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
-    var name = nameInput.value.trim();
-    if (!name) return;
-    addEntry(name, document.getElementById("flag-checkbox").checked);
-    nameInput.value = "";
-    nameInput.focus();
+    var country = countryInput.value.trim();
+    if (!country) {
+      countryInput.focus();
+      return;
+    }
+    addEntry(country, artistInput.value.trim(), songInput.value.trim(),
+      document.getElementById("flag-checkbox").checked);
+    countryInput.value = "";
+    artistInput.value = "";
+    songInput.value = "";
+    countryInput.focus();
   });
+
+  // Scoreboard display toggles live in shared state so the scoreboard
+  // reacts immediately.
+  function saveDisplayOption(key, checked) {
+    var state = readState();
+    state.display[key] = checked;
+    writeState(state);
+  }
+  showArtistBox.addEventListener("change", function () { saveDisplayOption("showArtist", this.checked); });
+  showSongBox.addEventListener("change", function () { saveDisplayOption("showSong", this.checked); });
 
   document.getElementById("reset-points").addEventListener("click", function () {
     if (!confirm("Reset every entry's points to 0?")) return;

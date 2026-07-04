@@ -19,11 +19,15 @@ Shared state lives in `localStorage` under the key **`ydse-state`**:
 
 ```json
 {
-  "entries": [{ "id": "...", "name": "...", "points": 0, "order": 0, "flagUrl": "https://…/1f1f8-1f1ea.png" }],
+  "entries": [{ "id": "...", "country": "Sweden", "artist": "Loreen", "song": "Euphoria",
+                "points": 0, "order": 0, "flagUrl": "https://…/1f1f8-1f1ea.png" }],
   "nextOrder": 5,
-  "lastAward": { "id": "...", "amount": 12, "seq": 3 }
+  "lastAward": { "id": "...", "amount": 12, "seq": 3 },
+  "display": { "showArtist": true, "showSong": true }
 }
 ```
+
+Entry names are structured (`country` required; `artist`/`song` optional, editable inline on the control page). Both pages' `readState` migrate legacy entries that still have a single `name` string by splitting on dashes. `display` toggles whether artist/song appear on the scoreboard; the control page has checkboxes for it.
 
 `flagUrl` is optional (null/absent = no flag). It is resolved once at add time on the control page: the country is parsed from the entry name (text before the first dash), looked up in an inline country→code map, and turned into a Twemoji PNG URL on the jsDelivr CDN (`jdecked/twemoji`). Flags therefore need internet access to display; both pages hide broken flag images gracefully.
 
