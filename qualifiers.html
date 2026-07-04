@@ -103,12 +103,56 @@
     text-overflow: ellipsis;
   }
 
+  /* Announced qualifiers recede so the background shows through them
+     and the remaining candidates stand out. */
+  .row.qualified { opacity: 0.35; }
+
   #empty {
     text-align: center;
     padding: 60px 0;
     font-size: 15px;
     letter-spacing: 1px;
     color: rgba(255,255,255,0.35);
+  }
+
+  #qual-count {
+    display: none;
+    margin-top: 22px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* Announcement banner: rolls in from the left edge, holds in the
+     center for ~10s, rolls out through the right edge. translateX with
+     vw/% keeps the whole trip on the compositor. */
+  #qual-banner {
+    position: fixed;
+    bottom: 36px;
+    left: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 28px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ff4ecd, #7a3ff2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    font-size: 20px;
+    white-space: nowrap;
+    transform: translateX(calc(-100% - 30px));
+    animation: qual-banner 13s forwards;
+  }
+  #qual-banner img { width: 32px; }
+  #qual-banner strong { font-weight: 800; }
+  @keyframes qual-banner {
+    0%   { transform: translateX(calc(-100% - 30px)); } /* off the left edge */
+    10%  { transform: translateX(calc(50vw - 50%)); }   /* centered */
+    88%  { transform: translateX(calc(50vw - 50%)); }   /* hold ~10s */
+    100% { transform: translateX(calc(100vw + 30px)); } /* off the right edge */
   }
 </style>
 </head>
@@ -119,6 +163,7 @@
       <h1 id="board-title">Qualifiers</h1>
     </header>
     <div id="board"></div>
+    <div id="qual-count"></div>
     <div id="empty">Waiting for entries… add them on the qualifiers control page.</div>
   </div>
 
@@ -144,7 +189,66 @@
       state = { entries: [] };
     }
     if (!state.display) state.display = { showArtist: true, showSong: true };
+    if (typeof state.display.showBanner !== "boolean") state.display.showBanner = true;
+    if (typeof state.maxQualifiers !== "number") state.maxQualifiers = 0;
     return state;
+  }
+
+  // ---- Qualification banner (queued: one announcement at a time) ----
+  var bannerQueue = [];
+  var bannerActive = false;
+  var lastAnnouncedSeq = null;
+
+  function checkAnnouncements(state) {
+    var maxSeq = 0;
+    state.entries.forEach(function (e) {
+      if (e.qualified && e.qualified > maxSeq) maxSeq = e.qualified;
+    });
+    if (lastAnnouncedSeq === null) {
+      // first render: don't replay announcements from before this page opened
+      lastAnnouncedSeq = maxSeq;
+      return;
+    }
+    if (!state.display.showBanner) {
+      // banner disabled on the control page: swallow silently
+      lastAnnouncedSeq = maxSeq;
+      return;
+    }
+    state.entries
+      .filter(function (e) { return e.qualified && e.qualified > lastAnnouncedSeq; })
+      .sort(function (a, b) { return a.qualified - b.qualified; })
+      .forEach(function (e) {
+        bannerQueue.push({ country: e.country, flagUrl: e.flagUrl });
+      });
+    lastAnnouncedSeq = maxSeq;
+    pumpBannerQueue();
+  }
+
+  function pumpBannerQueue() {
+    if (bannerActive || !bannerQueue.length) return;
+    bannerActive = true;
+    var item = bannerQueue.shift();
+    var banner = document.createElement("div");
+    banner.id = "qual-banner";
+    if (item.flagUrl) {
+      var flag = document.createElement("img");
+      flag.src = item.flagUrl;
+      flag.alt = "";
+      flag.addEventListener("error", function () { flag.style.display = "none"; });
+      banner.appendChild(flag);
+    }
+    var text = document.createElement("span");
+    var countryName = document.createElement("strong");
+    countryName.textContent = item.country;
+    text.appendChild(countryName);
+    text.appendChild(document.createTextNode(" qualified for the Grand Final!"));
+    banner.appendChild(text);
+    banner.addEventListener("animationend", function () {
+      banner.remove();
+      bannerActive = false;
+      pumpBannerQueue(); // next queued announcement, if any
+    });
+    document.body.appendChild(banner);
   }
 
   // What the stream sees: country, then artist/song if enabled and present
@@ -279,7 +383,20 @@
       var y = (inRightColumn ? index - leftCount : index) * (ROW_HEIGHT + ROW_GAP);
       row.style.transform = "translate(" + x + ", " + y + "px)";
       row.querySelector(".name").textContent = displayName(entry, state.display);
+      row.classList.toggle("qualified", !!entry.qualified);
     });
+
+    // "3/10 qualifiers announced" — only when a maximum is configured
+    var qualCount = document.getElementById("qual-count");
+    var announced = entries.filter(function (e) { return e.qualified; }).length;
+    if (state.maxQualifiers > 0 && entries.length) {
+      qualCount.textContent = announced + "/" + state.maxQualifiers + " qualifiers announced";
+      qualCount.style.display = "block";
+    } else {
+      qualCount.style.display = "none";
+    }
+
+    checkAnnouncements(state);
 
     // Remove rows for deleted entries
     Object.keys(rowsById).forEach(function (id) {

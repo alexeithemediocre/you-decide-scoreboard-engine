@@ -190,6 +190,31 @@
   }
 
   .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .btn-qualify {
+    padding: 8px 12px;
+    font-size: 13px;
+    background: rgba(33, 176, 106, 0.12);
+    border: 1px solid rgba(33, 176, 106, 0.5);
+    color: #5fe0a4;
+  }
+  .btn-qualify.active {
+    background: linear-gradient(90deg, #21b06a, #178f53);
+    border-color: transparent;
+    color: #fff;
+  }
+
+  input[type="number"] {
+    width: 70px;
+    padding: 8px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+    outline: none;
+  }
+  input[type="number"]:focus { border-color: #ff4ecd; }
   .btn-edit {
     padding: 8px 12px;
     font-size: 13px;
@@ -315,6 +340,10 @@
       <div class="display-options">
         <label class="flag-toggle"><input type="checkbox" id="show-artist" checked> Show artist names</label>
         <label class="flag-toggle"><input type="checkbox" id="show-song" checked> Show song titles</label>
+        <label class="flag-toggle"><input type="checkbox" id="show-banner" checked> Qualification banner</label>
+        <label class="flag-toggle">Max qualifiers:
+          <input type="number" id="max-qualifiers" min="0" step="1" placeholder="—">
+        </label>
       </div>
     </div>
 
@@ -384,6 +413,8 @@
   var songInput = document.getElementById("entry-song");
   var showArtistBox = document.getElementById("show-artist");
   var showSongBox = document.getElementById("show-song");
+  var showBannerBox = document.getElementById("show-banner");
+  var maxQualifiersInput = document.getElementById("max-qualifiers");
   var tbody = document.getElementById("entries-body");
   var noEntries = document.getElementById("no-entries");
 
@@ -400,8 +431,31 @@
     }
     if (typeof state.nextOrder !== "number") state.nextOrder = state.entries.length;
     if (!state.display) state.display = { showArtist: true, showSong: true };
+    if (typeof state.display.showBanner !== "boolean") state.display.showBanner = true;
     if (!state.title) state.title = { text: "", font: "", color: "" };
+    if (typeof state.maxQualifiers !== "number") state.maxQualifiers = 0;
+    // qualSeq stamps each qualification so the live page can announce
+    // them in order; keep it ahead of any existing stamp
+    if (typeof state.qualSeq !== "number") state.qualSeq = 0;
+    state.entries.forEach(function (e) {
+      if (e.qualified && e.qualified > state.qualSeq) state.qualSeq = e.qualified;
+    });
     return state;
+  }
+
+  // Mark/unmark an entry as qualified. Each new qualification gets an
+  // increasing stamp; unmarking simply clears it (no banner either way).
+  function toggleQualified(id) {
+    var state = readState();
+    var entry = state.entries.find(function (e) { return e.id === id; });
+    if (!entry) return;
+    if (entry.qualified) {
+      entry.qualified = null;
+    } else {
+      state.qualSeq += 1;
+      entry.qualified = state.qualSeq;
+    }
+    writeState(state);
   }
 
   // "Sweden — Loreen — Euphoria", respecting what the entry actually has
@@ -562,6 +616,11 @@
     var state = readState();
     showArtistBox.checked = state.display.showArtist;
     showSongBox.checked = state.display.showSong;
+    showBannerBox.checked = state.display.showBanner;
+    // don't fight the caret while the user is typing a number
+    if (document.activeElement !== maxQualifiersInput) {
+      maxQualifiersInput.value = state.maxQualifiers || "";
+    }
 
     // don't fight the user's caret while they are typing in the field
     if (document.activeElement !== titleTextInput) titleTextInput.value = state.title.text;
@@ -630,6 +689,15 @@
         actions.appendChild(saveBtn);
         actions.appendChild(cancelBtn);
       } else {
+        var qualBtn = document.createElement("button");
+        qualBtn.className = "btn-qualify" + (entry.qualified ? " active" : "");
+        qualBtn.textContent = entry.qualified ? "Qualified ✓" : "Qualified";
+        qualBtn.title = entry.qualified
+          ? "Click to withdraw the qualification"
+          : "Mark as qualified for the Grand Final";
+        qualBtn.addEventListener("click", function () { toggleQualified(entry.id); });
+        actions.appendChild(qualBtn);
+
         var editBtn = document.createElement("button");
         editBtn.className = "btn-edit";
         editBtn.textContent = "Edit";
@@ -680,6 +748,14 @@
   }
   showArtistBox.addEventListener("change", function () { saveDisplayOption("showArtist", this.checked); });
   showSongBox.addEventListener("change", function () { saveDisplayOption("showSong", this.checked); });
+  showBannerBox.addEventListener("change", function () { saveDisplayOption("showBanner", this.checked); });
+
+  maxQualifiersInput.addEventListener("input", function () {
+    var state = readState();
+    var value = parseInt(this.value, 10);
+    state.maxQualifiers = isNaN(value) || value < 0 ? 0 : value;
+    writeState(state);
+  });
 
   // ---- Board title controls ----
   var titleTextInput = document.getElementById("title-text");
