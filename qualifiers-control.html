@@ -391,6 +391,7 @@
     <div class="panel">
       <h2>Danger zone</h2>
       <div class="danger-zone">
+        <button class="btn-danger" id="clear-qualified">Clear all qualifications</button>
         <button class="btn-danger" id="clear-all">Delete all entries</button>
       </div>
     </div>
@@ -830,6 +831,16 @@
     idbDelete("qualifiers-background").catch(function () {});
     var state = readState();
     state.background = null;
+    writeState(state);
+  });
+
+  document.getElementById("clear-qualified").addEventListener("click", function () {
+    if (!confirm("Remove the qualified mark from ALL entries?")) return;
+    var state = readState();
+    state.entries.forEach(function (e) { e.qualified = null; });
+    // qualSeq deliberately keeps counting: resetting it could make the
+    // live page swallow the next announcement (it tracks the highest
+    // stamp it has seen).
     writeState(state);
   });
 
