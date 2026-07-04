@@ -8,6 +8,7 @@
   :root {
     --row-height: 64px;
     --row-gap: 10px;
+    --col-gap: 18px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,7 +22,7 @@
   }
 
   .stage {
-    max-width: 720px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: 32px 20px 60px;
   }
@@ -58,15 +59,17 @@
     transition: height 0.6s ease;
   }
 
+  /* Each row spans half the board; JS places it in the left or right
+     column via translateX, so a column switch animates as one glide. */
   .row {
     position: absolute;
     left: 0;
-    right: 0;
+    width: calc(50% - (var(--col-gap) / 2));
     height: var(--row-height);
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 0 20px;
+    gap: 12px;
+    padding: 0 16px;
     border-radius: 12px;
     background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
     border: 1px solid rgba(255,255,255,0.10);
@@ -94,8 +97,8 @@
   }
 
   .rank {
-    width: 40px;
-    font-size: 22px;
+    width: 34px;
+    font-size: 19px;
     font-weight: 800;
     text-align: center;
     color: rgba(255,255,255,0.85);
@@ -105,7 +108,7 @@
 
   .name {
     flex: 1;
-    font-size: 20px;
+    font-size: 17px;
     font-weight: 600;
     letter-spacing: 0.5px;
     white-space: nowrap;
@@ -114,12 +117,12 @@
   }
 
   .points {
-    min-width: 72px;
-    padding: 8px 14px;
+    min-width: 60px;
+    padding: 7px 12px;
     border-radius: 8px;
     background: rgba(0,0,0,0.35);
     border: 1px solid rgba(255,255,255,0.15);
-    font-size: 22px;
+    font-size: 19px;
     font-weight: 800;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -129,7 +132,7 @@
   /* Little "+N" badge that pops up next to the points when scored */
   .delta {
     position: absolute;
-    right: 110px;
+    right: 92px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 18px;
@@ -171,8 +174,9 @@
 <script>
 (function () {
   var STORAGE_KEY = "ydse-state";
-  var ROW_HEIGHT = 64;
-  var ROW_GAP = 10;
+  var ROW_HEIGHT = 64;   // keep in sync with --row-height
+  var ROW_GAP = 10;      // keep in sync with --row-gap
+  var COL_GAP = 18;      // keep in sync with --col-gap
 
   var board = document.getElementById("board");
   var emptyNote = document.getElementById("empty");
@@ -228,7 +232,11 @@
     var seenIds = {};
 
     emptyNote.style.display = entries.length ? "none" : "block";
-    board.style.height = entries.length * (ROW_HEIGHT + ROW_GAP) + "px";
+
+    // Two columns: ranks 1..leftCount go down the left column, the rest
+    // continue down the right one. Odd totals leave the extra row on the left.
+    var leftCount = Math.ceil(entries.length / 2);
+    board.style.height = leftCount * (ROW_HEIGHT + ROW_GAP) + "px";
 
     entries.forEach(function (entry, index) {
       seenIds[entry.id] = true;
@@ -239,7 +247,12 @@
       }
 
       // Position by rank — the transform transition animates the move.
-      row.style.transform = "translateY(" + index * (ROW_HEIGHT + ROW_GAP) + "px)";
+      // translateX(100%) is one full row width, i.e. the right column;
+      // switching columns therefore animates as a diagonal glide.
+      var inRightColumn = index >= leftCount;
+      var x = inRightColumn ? "calc(100% + " + COL_GAP + "px)" : "0px";
+      var y = (inRightColumn ? index - leftCount : index) * (ROW_HEIGHT + ROW_GAP);
+      row.style.transform = "translate(" + x + ", " + y + "px)";
       row.querySelector(".rank").textContent = index + 1;
       row.querySelector(".points").textContent = entry.points;
       row.querySelector(".name").textContent = entry.name;
