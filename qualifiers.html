@@ -103,10 +103,12 @@
     text-overflow: ellipsis;
   }
 
-  /* Candidates wait semi-transparent; an announced qualifier lights up
-     to full visibility against the background. */
-  .row { opacity: 0.35; }
-  .row.qualified { opacity: 1; }
+  /* A qualified block keeps full opacity but its glass background gets
+     50% more opaque (0.10 -> 0.15, 0.04 -> 0.06), lifting it slightly
+     against the backdrop. */
+  .row.qualified {
+    background: linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06));
+  }
 
   #empty {
     text-align: center;
