@@ -69,6 +69,54 @@
     color: #ffc86b;
   }
 
+  .btn-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b249f8;
+    cursor: pointer;
+  }
+  .btn-link:hover { text-decoration: underline; }
+
+  #flag-gallery { display: none; margin-top: 16px; }
+  #flag-gallery.open { display: block; }
+  #flag-search {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+  }
+  #flag-search:focus { border-color: #ff4ecd; }
+  #flag-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .flag-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    font-size: 13px;
+    color: rgba(255,255,255,0.8);
+  }
+  /* Fixed size so lazy images occupy space before loading — zero-height
+     images never intersect the viewport and would never start loading. */
+  .flag-cell img { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
+  .flag-cell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   .flag-img {
     width: 26px;
     flex-shrink: 0;
@@ -208,6 +256,11 @@
         <button type="submit" class="btn-add">Add</button>
       </form>
       <div id="flag-hint"></div>
+      <button type="button" class="btn-link" id="flag-gallery-toggle">Browse all available flags ▾</button>
+      <div id="flag-gallery">
+        <input type="text" id="flag-search" placeholder="Filter flags… e.g. Réunion" autocomplete="off">
+        <div id="flag-grid"></div>
+      </div>
     </div>
 
     <div class="panel">
@@ -340,6 +393,16 @@
     "by": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg/3840px-Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg.png"
   };
 
+  function flagUrlForCode(code) {
+    if (FLAG_OVERRIDES[code]) return FLAG_OVERRIDES[code];
+    var hex = code.indexOf("-") !== -1
+      ? code // already a full Twemoji hex sequence (England/Scotland/Wales)
+      : code.split("").map(function (ch) {
+          return (0x1f1e6 + ch.charCodeAt(0) - 97).toString(16);
+        }).join("-");
+    return TWEMOJI_BASE + hex + ".png";
+  }
+
   // "Sweden — Loreen — Euphoria" -> the flag PNG for Sweden (or null).
   // The country is whatever comes before the first dash separator.
   function flagUrlForName(name) {
@@ -348,14 +411,7 @@
       .replace(/’/g, "'");                          // curly apostrophe
     if (country.indexOf("the ") === 0) country = country.slice(4);
     var code = COUNTRY_CODES[country];
-    if (!code) return null;
-    if (FLAG_OVERRIDES[code]) return FLAG_OVERRIDES[code];
-    var hex = code.indexOf("-") !== -1
-      ? code
-      : code.split("").map(function (ch) {
-          return (0x1f1e6 + ch.charCodeAt(0) - 97).toString(16);
-        }).join("-");
-    return TWEMOJI_BASE + hex + ".png";
+    return code ? flagUrlForCode(code) : null;
   }
 
   var form = document.getElementById("add-form");
@@ -398,6 +454,79 @@
     state.nextOrder += 1;
     writeState(state);
   }
+
+  // ---- Flag gallery (built lazily on first open) ----
+  var SPECIAL_FLAG_NAMES = {
+    "1f3f4-e0067-e0062-e0065-e006e-e0067-e007f": "England",
+    "1f3f4-e0067-e0062-e0073-e0063-e0074-e007f": "Scotland",
+    "1f3f4-e0067-e0062-e0077-e006c-e0073-e007f": "Wales"
+  };
+
+  function buildFlagGallery() {
+    var grid = document.getElementById("flag-grid");
+    if (grid.children.length) return; // already built
+
+    // The map has many alias names per flag; show each flag once,
+    // under its proper English name.
+    var displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+    var seen = {};
+    var flags = [];
+    Object.keys(COUNTRY_CODES).forEach(function (key) {
+      var code = COUNTRY_CODES[key];
+      if (seen[code]) return;
+      seen[code] = true;
+      var name = SPECIAL_FLAG_NAMES[code];
+      if (!name) {
+        try { name = displayNames.of(code.toUpperCase()); } catch (e) {}
+        if (!name) name = code.toUpperCase();
+      }
+      flags.push({ name: name, url: flagUrlForCode(code) });
+    });
+    flags.sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+    // Lazy loading: images start without src and only get one when they
+    // are scrolled near the visible part of the grid.
+    var observer = "IntersectionObserver" in window
+      ? new IntersectionObserver(function (hits) {
+          hits.forEach(function (hit) {
+            if (!hit.isIntersecting) return;
+            hit.target.src = hit.target.dataset.src;
+            observer.unobserve(hit.target);
+          });
+        }, { root: grid, rootMargin: "200px" })
+      : null;
+
+    flags.forEach(function (flag) {
+      var cell = document.createElement("div");
+      cell.className = "flag-cell";
+      var img = document.createElement("img");
+      img.alt = "";
+      img.dataset.src = flag.url;
+      if (observer) observer.observe(img);
+      else img.src = flag.url; // very old browser: just load everything
+      var label = document.createElement("span");
+      label.textContent = flag.name;
+      cell.appendChild(img);
+      cell.appendChild(label);
+      grid.appendChild(cell);
+    });
+
+    document.getElementById("flag-search").addEventListener("input", function () {
+      var query = this.value.trim().toLowerCase();
+      Array.from(grid.children).forEach(function (cell) {
+        var name = cell.querySelector("span").textContent.toLowerCase()
+          .normalize("NFD").replace(/[̀-ͯ]/g, "");
+        cell.style.display = name.indexOf(query.normalize("NFD").replace(/[̀-ͯ]/g, "")) !== -1 ? "" : "none";
+      });
+    });
+  }
+
+  document.getElementById("flag-gallery-toggle").addEventListener("click", function () {
+    var gallery = document.getElementById("flag-gallery");
+    var open = gallery.classList.toggle("open");
+    if (open) buildFlagGallery();
+    this.textContent = open ? "Hide flag list ▴" : "Browse all available flags ▾";
+  });
 
   var flagHintTimer = null;
   function showFlagHint(message) {
