@@ -1,7 +1,8 @@
-// Generates the COUNTRY_CODES map for control.html:
+// Generates the COUNTRY_CODES map for flags.js:
 // every ISO region code that (a) CLDR knows a display name for and
 // (b) actually has a Twemoji flag PNG on the jsDelivr CDN.
-const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/";
+// Keep this base URL in sync with TWEMOJI_BASE in flags.js.
+const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.3/assets/72x72/";
 
 const dn = new Intl.DisplayNames(["en"], { type: "region" });
 const letters = "abcdefghijklmnopqrstuvwxyz";

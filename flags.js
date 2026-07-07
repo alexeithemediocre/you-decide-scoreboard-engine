@@ -3,7 +3,7 @@
 // tools/gen-flags.mjs — rerun that script instead of editing it by hand.
 
   // Twitter's emoji flag renders (Twemoji), served from a public CDN.
-  var TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72/";
+  var TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.3/assets/72x72/";
 
   // Country/territory name (lowercase, accents stripped) -> ISO code, or a
   // full Twemoji hex sequence for special flags. Generated from the CLDR
@@ -94,11 +94,14 @@
     "zimbabwe": "zw"
   };
 
-  // Per-code overrides that replace the Twemoji render with a custom image.
-  // Belarus: the white-red-white flag (1918, 1991-1995), as used by the
-  // democratic movement, instead of the current official flag.
+  // Per-code overrides that replace the Twemoji render with a custom image
+  // from the local static/ folder (deliberate choices — do not "fix" them
+  // to the official flags). Relative paths work because all pages live in
+  // the repo root, next to static/.
   var FLAG_OVERRIDES = {
-    "by": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg/3840px-Flag_of_Belarus_%281918%2C_1991%E2%80%931995%29.svg.png"
+    "by": "static/flag_belarus.png",
+    "ru": "static/flag_russia.png",
+    "ir": "static/flag_iran.png"
   };
 
   function flagUrlForCode(code) {
