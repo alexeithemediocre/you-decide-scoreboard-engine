@@ -43,6 +43,7 @@ The map covers all 258 emoji flags (every country and territory, incl. England/S
 `lastAward` records the most recent points award (`seq` increments each time) so the scoreboard can flash the receiving entry even when the total doesn't change — e.g. a "+0" award or a negative correction from the custom-amount box.
 
 - `control.html` writes state; `scoreboard.html` listens to the `storage` event **and** polls every 400 ms as a fallback.
+- **Browser caveat:** opening the pages via file:// only syncs in Chrome/Edge (all file:// pages share one origin there). Firefox (since 68) and Safari isolate each local file's storage, so nothing syncs — the pages must be served from http://localhost instead. `Start scoreboard.command` (double-clickable) starts `python3 -m http.server 8123` and opens the control room; both control pages' footer hints mention it.
 - Ranking: points descending, then `tieBreak` ascending, then `order` (insertion order). `tieBreak` defaults to `order`; the control page's ▲▼ arrows permute it within a group of equal-point entries to resolve ties manually. Any award that actually changes an entry's points resets that entry's `tieBreak` to `order` ("manual nudges are forgotten"), as does "Reset all points". The sort comparator must stay identical in both pages.
 - Consequence: both pages must be open in the same browser on the same machine. Multi-machine or viewer participation would require a real backend — that is the anticipated future direction ("engine" in the repo name).
 
@@ -50,7 +51,7 @@ If you change a state shape or storage key, update **both pages of that board** 
 
 ## Running / verifying
 
-No server is required for normal use (double-click the HTML files). For automated verification, `.claude/launch.json` defines a static server:
+In Chrome/Edge, no server is required (double-click the HTML files); other browsers need the local server (see the browser caveat above). For automated verification, `.claude/launch.json` defines a static server:
 
 ```
 python3 -m http.server 8123
