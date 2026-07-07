@@ -8,6 +8,17 @@ cd "$(dirname "$0")"
 PORT=8123
 URL="http://localhost:$PORT/control.html"
 
+# The server itself is Python's built-in one, so Python 3 must be present.
+# macOS usually has it (or offers to install its command line tools on
+# first use); otherwise get it from https://www.python.org/downloads/
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Python 3 is required to run the local server, but it was not found."
+  echo "Install it from https://www.python.org/downloads/ and run this again."
+  read -n 1 -s -r -p "Press any key to close this window..."
+  echo
+  exit 1
+fi
+
 if lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
   echo "The scoreboard server is already running — opening the control room."
   open "$URL"
